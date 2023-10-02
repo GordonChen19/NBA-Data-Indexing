@@ -1,124 +1,114 @@
 //Simulate accesses with a block as a unit
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include "memory_management.h"
+#define N 100
 
-typedef struct{
-    uint16_t year; // 12 bits for year (limited to 0-4095)
-    uint8_t month; // 4 bits for month (limited to 1-12)
-    uint8_t day;
-    uint32_t TEAM_ID_home; 
-    uint16_t PTS_home; 
-    uint16_t FG_PCT_home;
-    uint16_t FG3_PCT_home; 
-    uint16_t FT_PCT_home;
-    uint8_t AST_home; 
-    uint8_t REB_home; 
-    uint8_t HOME_TEAM_WINS; 
-}Record; //20 Bytes (+1 Byte for data alignment)
+// Specifying record format 
+// typedef struct{
+//     uint16_t year; // 12 bits for year (limited to 0-4095)
+//     uint8_t month; // 4 bits for month (limited to 1-12)
+//     uint8_t day;
+//     uint32_t TEAM_ID_home; 
+//     uint16_t PTS_home; 
+//     uint16_t FG_PCT_home; // index on b+ tree
+//     uint16_t FG3_PCT_home; 
+//     uint16_t FT_PCT_home;
+//     uint8_t AST_home; 
+//     uint8_t REB_home; 
+//     uint8_t HOME_TEAM_WINS; 
+// }Record; //20 Bytes (+1 Byte for data alignment)
 
+// typedef struct{
+//     Record* records; //400 Bytes
+// }Block;
 
-int compareFGPCT(const void *a, const void *b);
-int compareFGPCT(const void *a, const void *b){
-    const Record* recordA = (const Record*) a;
-    const Record* recordB = (const Record*) b;
-    // Compare based on FG_PCT_home field
-    if (recordA->FG_PCT_home < recordB->FG_PCT_home) return -1;
-    if (recordA->FG_PCT_home > recordB->FG_PCT_home) return 1;
-    return 0;
-}
+// typedef struct node {
+//     void **pointers;
+//     int *keys;
+//     struct node* parent;
+//     bool is_leaf;
+//     int num_keys;
+//     struct node *next;
+// } node;
+// int param_n = N;
+// node *queue = NULL;
+// bool verbose_output = false;
+
+// void enqueue(node *new_node);
+// node *dequeue(void);
+// int height(node *const root);
+// int pathToLeaves(node *const root, node* child);
+// void printLeaves(node *const root);
+// void printTree(node *const root);
+// void findAndPrint(node *const root, int key, bool verbose);
+// void findAndPrintRange(node *const root, int range1, bool verbose);
+// int findRange(node *const root, int key_start, int key_end, bool verbose, int returned_keys[], void *returned_pointers[]);
+// node *findLeaf(node *const root, int key, bool verbose);
+// record *find(node *root, int key, bool verbose, node **leaf_out);
+// int cut(int length);
+
+// node *makeNode(void);
+// node *makeLeaf(void);
+// int getLeftIndex(node *parent, node *left);
+// node *insertIntoLeaf(node *leaf, int key, record *pointer);
+// node *insertIntoLeafAfterSplitting(node *root, node *leaf, int key,
+//                    record *pointer);
+// node *insertIntoNode(node *root, node *parent,
+//            int left_index, int key, node *right);
+// node *insertIntoNodeAfterSplitting(node *root, node *parent,
+//                    int left_index,
+//                    int key, node *right);
+// node *insertIntoParent(node *root, node *left, int key, node *right);
+// node *insertIntoNewRoot(node *left, int key, node *right);
+// node *startNewTree(int key, record *pointer);
+// node *insert(node *root, int key, int value);
 
 
 int main() {
-    FILE *file = fopen("games.txt","r");
-    //Count the number of lines 
-    int record_count=-1;    
-    char c;
-    do{
-        c=fgetc(file);
-        if(c=='\n') record_count++;
+    const int blockSize = 400; //400 bytes
+    const int recordSize = sizeof(Record); // 20 per records
 
-    }while(c!=EOF);
-    printf("Total number of records: %d\n",record_count);
-    //record_count = 26651 Records
+    printf("READING RECORDS INTO THE DATABASE\n");
     
-    Record* Database=malloc(sizeof(Record)*record_count);
+    read_output read_output = read_records("games copy.txt", recordSize);
 
-    file = fopen("games.txt","r");
-    //Copying file to database
-    if (file != NULL) {
-        char* record=malloc(sizeof(char)*110);
-        int index=-1;
-        while(fgets(record,110,file)){
-            if(index!=-1){
-                printf("%s",record);
-                // Database[index]=(Record*)malloc(sizeof(Record));
-                
-                float FT_PCT,FG_PCT,FG3_PCT;
-                
+    Record **Database = read_output.Database;
+    int record_count = read_output.record_count;
 
-                sscanf(record,"%2hhu/%2hhu/%4hu %u %hu %f %f %f %hhu %hhu %hhu",
-                    &Database[index].day,
-                    &Database[index].month,
-                    &Database[index].year,
-                    &Database[index].TEAM_ID_home,
-                    &Database[index].PTS_home,
-                    &FG_PCT,
-                    &FT_PCT,
-                    &FG3_PCT,
-                    &Database[index].AST_home,
-                    &Database[index].REB_home,
-                    &Database[index].HOME_TEAM_WINS);
+    const int recordsPerBlock = blockSize/recordSize; // 20 records per block
+    const int blockQuantity = ceil(record_count/recordsPerBlock); // a lot
+    
 
-                FG_PCT*=1000;
-                FT_PCT*=1000;
-                FG3_PCT*=1000;
-                Database[index].FG_PCT_home=(int)FG_PCT;
-                Database[index].FT_PCT_home=(int)FT_PCT;
-                Database[index].FG3_PCT_home=(int)FG3_PCT;
-               
-            }
-            index++;
+    printf("NUMBER OF RECORDS: %d \n", record_count);
+    printf("SIZE OF RECORDS: %d \n", recordSize);
+    printf("NUMBER OF RECORDS STORED IN A BLOCK: %d \n", recordsPerBlock);
+    printf("NUMBER OF BLOCKS: %d \n", blockQuantity);
+
+
+
+    Block* Disk = malloc(sizeof(Block)*blockQuantity);
+    int row = 0;
+    for(int block=0;block<blockQuantity;block++)
+    {
+        Disk[block].records=malloc(sizeof(Record)*recordsPerBlock);
+        int block_volume = 0;
+        int location_on_block = 0;
+        while(block_volume<=400)
+        {
+            Disk[block].records[0] = *Database[row];
+            row++;
+            location_on_block++;
+            block_volume+=recordSize;
         }
-        fclose(file);
-
-        printf("%d",index);
-        printf("Printing first record");
-        printf("FG_PCT: %hu\n",Database[0].FG_PCT_home);
-        qsort(Database,record_count,sizeof(Record),compareFGPCT);
-        printf("Printing first sorted record");
-        printf("FG_PCT: %hu\n",Database[0].FG_PCT_home);
-
-        //Sorted records in block 
-
-
-        const int blockSize = 400;
-        const int recordSize = sizeof(Record);
-        const int recordsPerBlock = blockSize/recordSize;
-        const int blockQuantity = ceil(record_count/(blockSize/recordsPerBlock));
-
-        Record** Disk=malloc(sizeof(Record*)*blockQuantity);
-
-        int row=0;
-        for(int block=0;block<blockQuantity;block++){
-            Disk[block]=malloc(sizeof(Record)*recordsPerBlock);
-            int block_volume = 0;
-            int location_on_block = 0;
-            while(block_volume<=400)
-            {
-                Disk[block][0] = Database[row++];
-                location_on_block++;
-                block_volume+=recordSize;
-            }
-            // Insert record into the block
-        }
-       
-        
-       
-
+        // Insert record into the block
+        // 
     }
+    
     return 0;
 }
 

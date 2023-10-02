@@ -9,7 +9,7 @@
 #define ORDER 3
 
 typedef struct record {
-  int value;
+  int value; //Key
 } record;
 
 // Node

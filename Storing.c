@@ -1,10 +1,7 @@
-//Simulate accesses with a block as a unit
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-
 typedef struct{
     uint16_t year; // 12 bits for year (limited to 0-4095)
     uint8_t month; // 4 bits for month (limited to 1-12)
@@ -19,7 +16,6 @@ typedef struct{
     uint8_t HOME_TEAM_WINS; 
 }Record; //20 Bytes (+1 Byte for data alignment)
 
-
 int compareFGPCT(const void *a, const void *b);
 int compareFGPCT(const void *a, const void *b){
     const Record* recordA = (const Record*) a;
@@ -30,9 +26,9 @@ int compareFGPCT(const void *a, const void *b){
     return 0;
 }
 
-
 int main() {
     FILE *file = fopen("games.txt","r");
+
     //Count the number of lines 
     int record_count=-1;    
     char c;
@@ -41,8 +37,6 @@ int main() {
         if(c=='\n') record_count++;
 
     }while(c!=EOF);
-    printf("Total number of records: %d\n",record_count);
-    //record_count = 26651 Records
     
     Record* Database=malloc(sizeof(Record)*record_count);
 
@@ -93,11 +87,21 @@ int main() {
 
         //Sorted records in block 
 
+        //Simulate accesses with a block as a unit
+
+
 
         const int blockSize = 400;
         const int recordSize = sizeof(Record);
         const int recordsPerBlock = blockSize/recordSize;
         const int blockQuantity = ceil(record_count/(blockSize/recordsPerBlock));
+        
+
+        printf("Total number of records: %d\n",record_count); //record_count = 26651 Records
+        printf("Size of a record: %d\n",recordSize);
+         printf("Number of records stored in a block: %d\n",recordsPerBlock);
+        printf("Number of blocks for storing the data: %d\n",blockQuantity);
+        
 
         Record** Disk=malloc(sizeof(Record*)*blockQuantity);
 

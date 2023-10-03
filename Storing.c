@@ -97,8 +97,9 @@ Record** DiskAllocation() {
 }
 
 
+
 int main(){ 
     Record** Disk=DiskAllocation(); //Store records into blocks inside disk
-    
+
 
 }

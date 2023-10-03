@@ -1,246 +1,181 @@
-// insertioning a key on a B-tree in C
-
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAX 3
-#define MIN 2
+#define bucketSize 3
 
-struct btreeNode {
-  int item[MAX + 1], count;
-  struct btreeNode *link[MAX + 1];
-};
+typedef struct node {
+    int isLeaf;
+    struct node** ptr;
+    int* key;
+    int size;
+} node;
 
-struct btreeNode *root;
-
-// Node creation
-struct btreeNode *createNode(int item, struct btreeNode *child) {
-  struct btreeNode *newNode;
-  newNode = (struct btreeNode *)malloc(sizeof(struct btreeNode));
-  newNode->item[1] = item;
-  newNode->count = 1;
-  newNode->link[0] = root;
-  newNode->link[1] = child;
-  return newNode;
+node* createNode() {
+    node* newNode = (node*)malloc(sizeof(node));
+    newNode->isLeaf = 0;
+    newNode->ptr = (node**)malloc((bucketSize + 1) * sizeof(node*));
+    newNode->key = (int*)malloc(bucketSize * sizeof(int));
+    newNode->size = 0;
+    return newNode;
 }
 
-// Insert
-void insertValue(int item, int pos, struct btreeNode *node,
-          struct btreeNode *child) {
-  int j = node->count;
-  while (j > pos) {
-    node->item[j + 1] = node->item[j];
-    node->link[j + 1] = node->link[j];
-    j--;
-  }
-  node->item[j + 1] = item;
-  node->link[j + 1] = child;
-  node->count++;
+typedef struct Btree {
+    node* root;
+} Btree;
+
+Btree* createBtree() {
+    Btree* newBtree = (Btree*)malloc(sizeof(Btree));
+    newBtree->root = NULL;
+    return newBtree;
 }
 
-// Split node
-void splitNode(int item, int *pval, int pos, struct btreeNode *node,
-         struct btreeNode *child, struct btreeNode **newNode) {
-  int median, j;
-
-  if (pos > MIN)
-    median = MIN + 1;
-  else
-    median = MIN;
-
-  *newNode = (struct btreeNode *)malloc(sizeof(struct btreeNode));
-  j = median + 1;
-  while (j <= MAX) {
-    (*newNode)->item[j - median] = node->item[j];
-    (*newNode)->link[j - median] = node->link[j];
-    j++;
-  }
-  node->count = median;
-  (*newNode)->count = MAX - median;
-
-  if (pos <= MIN) {
-    insertValue(item, pos, node, child);
-  } else {
-    insertValue(item, pos - median, *newNode, child);
-  }
-  *pval = node->item[node->count];
-  (*newNode)->link[0] = node->link[node->count];
-  node->count--;
-}
-
-// Set the value of node
-int setNodeValue(int item, int *pval,
-           struct btreeNode *node, struct btreeNode **child) {
-  int pos;
-  if (!node) {
-    *pval = item;
-    *child = NULL;
-    return 1;
-  }
-
-  if (item < node->item[1]) {
-    pos = 0;
-  } else {
-    for (pos = node->count;
-       (item < node->item[pos] && pos > 1); pos--)
-      ;
-    if (item == node->item[pos]) {
-      printf("Duplicates not allowed\n");
-      return 0;
+node* findParent(node* root, node* child) {
+    if (root == NULL || root->isLeaf || root->ptr[0] == child) {
+        return NULL;
     }
-  }
-  if (setNodeValue(item, pval, node->link[pos], child)) {
-    if (node->count < MAX) {
-      insertValue(*pval, pos, node, *child);
-    } else {
-      splitNode(*pval, pval, pos, node, *child, child);
-      return 1;
-    }
-  }
-  return 0;
-}
-
-// Insert the value
-void insertion(int item) {
-  int flag, i;
-  struct btreeNode *child;
-
-  flag = setNodeValue(item, &i, root, &child);
-  if (flag)
-    root = createNode(i, child);
-}
-
-// Copy the successor
-void copySuccessor(struct btreeNode *myNode, int pos) {
-  struct btreeNode *dummy;
-  dummy = myNode->link[pos];
-
-  for (; dummy->link[0] != NULL;)
-    dummy = dummy->link[0];
-  myNode->item[pos] = dummy->item[1];
-}
-
-// Do rightshift
-void rightShift(struct btreeNode *myNode, int pos) {
-  struct btreeNode *x = myNode->link[pos];
-  int j = x->count;
-
-  while (j > 0) {
-    x->item[j + 1] = x->item[j];
-    x->link[j + 1] = x->link[j];
-  }
-  x->item[1] = myNode->item[pos];
-  x->link[1] = x->link[0];
-  x->count++;
-
-  x = myNode->link[pos - 1];
-  myNode->item[pos] = x->item[x->count];
-  myNode->link[pos] = x->link[x->count];
-  x->count--;
-  return;
-}
-
-// Do leftshift
-void leftShift(struct btreeNode *myNode, int pos) {
-  int j = 1;
-  struct btreeNode *x = myNode->link[pos - 1];
-
-  x->count++;
-  x->item[x->count] = myNode->item[pos];
-  x->link[x->count] = myNode->link[pos]->link[0];
-
-  x = myNode->link[pos];
-  myNode->item[pos] = x->item[1];
-  x->link[0] = x->link[1];
-  x->count--;
-
-  while (j <= x->count) {
-    x->item[j] = x->item[j + 1];
-    x->link[j] = x->link[j + 1];
-    j++;
-  }
-  return;
-}
-
-// Merge the nodes
-void mergeNodes(struct btreeNode *myNode, int pos) {
-  int j = 1;
-  struct btreeNode *x1 = myNode->link[pos], *x2 = myNode->link[pos - 1];
-
-  x2->count++;
-  x2->item[x2->count] = myNode->item[pos];
-  x2->link[x2->count] = myNode->link[0];
-
-  while (j <= x1->count) {
-    x2->count++;
-    x2->item[x2->count] = x1->item[j];
-    x2->link[x2->count] = x1->link[j];
-    j++;
-  }
-
-  j = pos;
-  while (j < myNode->count) {
-    myNode->item[j] = myNode->item[j + 1];
-    myNode->link[j] = myNode->link[j + 1];
-    j++;
-  }
-  myNode->count--;
-  free(x1);
-}
-
-// Adjust the node
-void adjustNode(struct btreeNode *myNode, int pos) {
-  if (!pos) {
-    if (myNode->link[1]->count > MIN) {
-      leftShift(myNode, 1);
-    } else {
-      mergeNodes(myNode, 1);
-    }
-  } else {
-    if (myNode->count != pos) {
-      if (myNode->link[pos - 1]->count > MIN) {
-        rightShift(myNode, pos);
-      } else {
-        if (myNode->link[pos + 1]->count > MIN) {
-          leftShift(myNode, pos + 1);
-        } else {
-          mergeNodes(myNode, pos);
+    for (int i = 0; i < root->size; i++) {
+        if (root->ptr[i + 1] == child) {
+            return root;
         }
-      }
+    }
+    return findParent(root->ptr[0], child);
+}
+
+void shiftLevel(int key, node* leftChild, node* rightChild) {
+    node* parent = findParent(root, leftChild);
+    if (parent == NULL) {
+        node* newRoot = createNode();
+        newRoot->key[0] = key;
+        newRoot->ptr[0] = leftChild;
+        newRoot->ptr[1] = rightChild;
+        newRoot->size = 1;
+        root = newRoot;
+        return;
+    }
+    int i;
+    for (i = 0; i < parent->size; i++) {
+        if (parent->key[i] > key) {
+            break;
+        }
+    }
+    for (int j = parent->size; j > i; j--) {
+        parent->key[j] = parent->key[j - 1];
+    }
+    for (int j = parent->size + 1; j > i + 1; j--) {
+        parent->ptr[j] = parent->ptr[j - 1];
+    }
+    parent->key[i] = key;
+    parent->ptr[i + 1] = rightChild;
+    parent->size++;
+}
+
+void insert(Btree* btree, int key) {
+    if (btree->root == NULL) {
+        node* newNode = createNode();
+        newNode->key[0] = key;
+        newNode->isLeaf = 1;
+        newNode->size = 1;
+        btree->root = newNode;
+        return;
+    }
+    node* current = btree->root;
+    node* parent = NULL;
+    while (!current->isLeaf) {
+        parent = current;
+        for (int i = 0; i < current->size; i++) {
+            if (key < current->key[i]) {
+                current = current->ptr[i];
+                break;
+            }
+            if (i == current->size - 1) {
+                current = current->ptr[i + 1];
+                break;
+            }
+        }
+    }
+    if (current->size < bucketSize) {
+        int i = 0;
+        while (key > current->key[i] && i < current->size) {
+            i++;
+        }
+        for (int j = current->size; j > i; j--) {
+            current->key[j] = current->key[j - 1];
+        }
+        current->key[i] = key;
+        current->size++;
     } else {
-      if (myNode->link[pos - 1]->count > MIN)
-        rightShift(myNode, pos);
-      else
-        mergeNodes(myNode, pos);
+        node* newNode = createNode();
+        int virtualNode[bucketSize + 1];
+        for (int i = 0; i < bucketSize; i++) {
+            virtualNode[i] = current->key[i];
+        }
+        int i = 0, j;
+        while (key > virtualNode[i] && i < bucketSize) {
+            i++;
+        }
+        for (int j = bucketSize + 1; j > i; j--) {
+            virtualNode[j] = virtualNode[j - 1];
+        }
+        virtualNode[i] = key;
+        newNode->isLeaf = 1;
+        current->size = (bucketSize + 1) / 2;
+        newNode->size = bucketSize + 1 - (bucketSize + 1) / 2;
+        current->ptr[current->size] = newNode;
+        newNode->ptr[newNode->size] = current->ptr[bucketSize];
+        current->ptr[bucketSize] = NULL;
+        for (i = 0; i < current->size; i++) {
+            current->key[i] = virtualNode[i];
+        }
+        for (i = 0, j = current->size; i < newNode->size; i++, j++) {
+            newNode->key[i] = virtualNode[j];
+        }
+        if (current == btree->root) {
+            node* newRoot = createNode();
+            newRoot->key[0] = newNode->key[0];
+            newRoot->ptr[0] = current;
+            newRoot->ptr[1] = newNode;
+            newRoot->size = 1;
+            btree->root = newRoot;
+        } else {
+            shiftLevel(newNode->key[0], current, newNode);
+        }
     }
-  }
 }
 
-// Traverse the tree
-void traversal(struct btreeNode *myNode) {
-  int i;
-  if (myNode) {
-    for (i = 0; i < myNode->count; i++) {
-      traversal(myNode->link[i]);
-      printf("%d ", myNode->item[i + 1]);
+int search(node* root, int key) {
+    if (root == NULL) {
+        return 0;
     }
-    traversal(myNode->link[i]);
-  }
+    int i = 0;
+    while (i < root->size && key > root->key[i]) {
+        i++;
+    }
+    if (i < root->size && key == root->key[i]) {
+        return 1;
+    }
+    if (root->isLeaf) {
+        return 0;
+    }
+    return search(root->ptr[i], key);
 }
 
-int main() {
-  int item, ch;
-
-  insertion(8);
-  insertion(9);
-  insertion(10);
-  insertion(11);
-  insertion(15);
-  insertion(16);
-  insertion(17);
-  insertion(18);
-  insertion(20);
-  insertion(23);
-
-  traversal(root);
+void display(node* root) {
+    if (root != NULL) {
+        for (int i = 0; i < root->size; i++) {
+            display(root->ptr[i]);
+            printf("%d ", root->key[i]);
+        }
+        display(root->ptr[root->size]);
+    }
 }
+
+void deleteNode(Btree* btree, int key) {
+    if (btree->root == NULL) {
+        return;
+    }
+    node* current = btree->root;
+    node* parent = NULL;
+    int isLeftChild = 1;
+    while (!current->isLeaf) {
+        parent = current;
+        isLeftChild

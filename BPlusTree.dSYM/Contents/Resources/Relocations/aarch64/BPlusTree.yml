@@ -1,8 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/gordonchen/Documents/MACS/Year 3/Database Principles/Assignment/NBA-Data-Indexing/BPlusTree'
-relocations:
-  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _compareFGPCT, symObjAddr: 0x0, symBinAddr: 0x1000039A8, symSize: 0x88 }
-  - { offsetInCU: 0x11D, offset: 0x11D, size: 0x8, addend: 0x0, symName: _compareFGPCT, symObjAddr: 0x0, symBinAddr: 0x1000039A8, symSize: 0x88 }
-  - { offsetInCU: 0x16F, offset: 0x16F, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x88, symBinAddr: 0x100003A30, symSize: 0x470 }
-...

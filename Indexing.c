@@ -1,181 +1,467 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <stdbool.h>
+#include <string.h>
+#include <time.h>
 
-#define bucketSize 3
+int blockSize; //400 Bytes
+int recordSize;
+int recordsPerBlock;
+int blockQuantity;
+const int N=38;
+typedef struct{
+    uint16_t year; // 12 bits for year (limited to 0-4095)
+    uint8_t month; // 4 bits for month (limited to 1-12)
+    uint8_t day;
+    uint32_t TEAM_ID_home; 
+    uint16_t PTS_home; 
+    uint16_t FG_PCT_home;
+    uint16_t FG3_PCT_home; 
+    uint16_t FT_PCT_home;
+    uint8_t AST_home; 
+    uint8_t REB_home; 
+    uint8_t HOME_TEAM_WINS; 
+}Record; //20 Bytes (+1 Byte for data alignment)
 
-typedef struct node {
-    int isLeaf;
-    struct node** ptr;
-    int* key;
-    int size;
-} node;
+typedef struct TreeNode{
+    struct TreeNode* parent; //8 bytes
+    void* pointer[N+1]; //8*(N+1)
+    uint16_t keys[N]; //2*N
+    uint8_t isLeaf; //1
+    uint8_t num_keys; //1
+}TreeNode; //N==38
 
-node* createNode() {
-    node* newNode = (node*)malloc(sizeof(node));
-    newNode->isLeaf = 0;
-    newNode->ptr = (node**)malloc((bucketSize + 1) * sizeof(node*));
-    newNode->key = (int*)malloc(bucketSize * sizeof(int));
-    newNode->size = 0;
-    return newNode;
-}
+typedef struct Bucket{
+    void* sameKeyPointer[45]; //bucket of duplicate pointers 
+    uint8_t size;
+}Bucket;
 
-typedef struct Btree {
-    node* root;
-} Btree;
 
-Btree* createBtree() {
-    Btree* newBtree = (Btree*)malloc(sizeof(Btree));
-    newBtree->root = NULL;
-    return newBtree;
-}
+Record** DiskAllocation();
+Record** DiskAllocation() {
+    FILE *file = fopen("games.txt","r");
 
-node* findParent(node* root, node* child) {
-    if (root == NULL || root->isLeaf || root->ptr[0] == child) {
-        return NULL;
-    }
-    for (int i = 0; i < root->size; i++) {
-        if (root->ptr[i + 1] == child) {
-            return root;
+    //Count the number of lines 
+    int record_count=-1;    
+    char c;
+    do{
+        c=fgetc(file);
+        if(c=='\n') record_count++;
+
+    }while(c!=EOF);
+
+    //////////////////////////////////////////////////////////////////
+
+    //Solution to Part 1
+    
+    blockSize = 400;
+    recordSize = sizeof(Record);
+    recordsPerBlock = blockSize/recordSize;
+    blockQuantity = ceil(record_count/(blockSize/recordsPerBlock));
+    
+
+    printf("Total number of records: %d\n",record_count); //record_count = 26651 Records
+    printf("Size of a record: %d\n",recordSize);
+    printf("Number of records stored in a block: %d\n",recordsPerBlock);
+    printf("Number of blocks for storing the data: %d\n",blockQuantity);
+
+    //////////////////////////////////////////////////////////////////
+
+    //Simulate accesses with a block as a unit
+
+    Record** Disk=malloc(sizeof(Record*)*blockQuantity);
+
+    file=fopen("games.txt","r");
+    
+
+    char* record=malloc(sizeof(char)*110);
+    fgets(record,110,file); //Ignore the first line of code
+
+    for(int block=0;block<blockQuantity;block++){
+        Disk[block]=malloc(sizeof(Record)*recordsPerBlock);
+        for(int rec=0;rec<recordsPerBlock;rec++){ //Storing records in each block 
+            if(fgets(record,110,file)){
+                printf("%s",record);
+                float FT_PCT,FG_PCT,FG3_PCT;
+                sscanf(record,"%2hhu/%2hhu/%4hu %u %hu %f %f %f %hhu %hhu %hhu",
+                    &Disk[block][rec].day,
+                    &Disk[block][rec].month,
+                    &Disk[block][rec].year,
+                    &Disk[block][rec].TEAM_ID_home,
+                    &Disk[block][rec].PTS_home,
+                    &FG_PCT,
+                    &FT_PCT,
+                    &FG3_PCT,
+                    &Disk[block][rec].AST_home,
+                    &Disk[block][rec].REB_home,
+                    &Disk[block][rec].HOME_TEAM_WINS);
+                FG_PCT*=1000;
+                FT_PCT*=1000;
+                FG3_PCT*=1000;
+                Disk[block][rec].FG_PCT_home=(int)FG_PCT;
+                Disk[block][rec].FT_PCT_home=(int)FT_PCT;
+                Disk[block][rec].FG3_PCT_home=(int)FG3_PCT;
+
+            }
         }
     }
-    return findParent(root->ptr[0], child);
+    fclose(file);
+
+    printf("Printing first record");
+    printf("FG_PCT: %hu\n",Disk[0][0].FG_PCT_home);
+
+    printf("Print size of disk: %d\n",blockSize*blockQuantity);
+
+    //////////////////////////////////////////////////////////////////
+    
+    return Disk;
 }
 
-void shiftLevel(int key, node* leftChild, node* rightChild) {
-    node* parent = findParent(root, leftChild);
-    if (parent == NULL) {
-        node* newRoot = createNode();
-        newRoot->key[0] = key;
-        newRoot->ptr[0] = leftChild;
-        newRoot->ptr[1] = rightChild;
-        newRoot->size = 1;
-        root = newRoot;
-        return;
+//////////////////////////////////////////////////////////////////
+
+TreeNode* root=NULL; //There initially does not exist a B+ Tree
+
+int levels(); 
+int levels(){
+    int level=1;
+    TreeNode* tmp = root;
+    while(!tmp->isLeaf){
+        tmp=tmp->pointer[0];
+        level++;
     }
+    return level;
+}
+
+void displayRecord(Record* pointer);
+void displayRecord(Record* pointer){
+    printf("%2hhu/%2hhu/%4hu %u %hu %f %f %f %hhu %hhu %hhu\n",
+        pointer->day,
+        pointer->month,
+        pointer->year,
+        pointer->TEAM_ID_home,
+        pointer->PTS_home,
+        (float)pointer->FG_PCT_home/1000,
+        (float)pointer->FT_PCT_home/1000,
+        (float)pointer->FG3_PCT_home/1000,
+        pointer->AST_home,
+        pointer->REB_home,
+        pointer->HOME_TEAM_WINS);
+}
+
+TreeNode* findLeaf(uint16_t key);
+TreeNode* findLeaf(uint16_t key){
+    if(root==NULL) return NULL;
+
+    TreeNode* TraversalNode=root;
+    while(!TraversalNode->isLeaf){
+        int i=0;
+        while(i<TraversalNode->num_keys){
+            if(key>=TraversalNode->keys[i])
+                i++;
+            else
+                break;
+        } 
+        TraversalNode=(TreeNode*)TraversalNode->pointer[i];
+    }
+    return TraversalNode; //Returns leaf node
+}
+
+void find(float lowerBound, float upperBound);
+void find(float lowerBound, float upperBound){
+    if(root==NULL) return;
+
+    TreeNode* leaf=findLeaf(lowerBound);
+
     int i;
-    for (i = 0; i < parent->size; i++) {
-        if (parent->key[i] > key) {
+    for(i=0;i<leaf->num_keys;i++){
+        if(leaf->keys[i]>=lowerBound && leaf->keys[i]<=upperBound) //Find the first key that satisfies this
             break;
-        }
     }
-    for (int j = parent->size; j > i; j--) {
-        parent->key[j] = parent->key[j - 1];
-    }
-    for (int j = parent->size + 1; j > i + 1; j--) {
-        parent->ptr[j] = parent->ptr[j - 1];
-    }
-    parent->key[i] = key;
-    parent->ptr[i + 1] = rightChild;
-    parent->size++;
-}
 
-void insert(Btree* btree, int key) {
-    if (btree->root == NULL) {
-        node* newNode = createNode();
-        newNode->key[0] = key;
-        newNode->isLeaf = 1;
-        newNode->size = 1;
-        btree->root = newNode;
+    int num_records=0;
+    int average;
+    float sum_of_FG3=0;
+    int num_data_blocks=0;
+    int index_nodes_accessed=levels();
+    if(i==leaf->num_keys)
         return;
-    }
-    node* current = btree->root;
-    node* parent = NULL;
-    while (!current->isLeaf) {
-        parent = current;
-        for (int i = 0; i < current->size; i++) {
-            if (key < current->key[i]) {
-                current = current->ptr[i];
-                break;
+    else{
+        while(i<=leaf->num_keys && (float)leaf->keys[i]/1000<=upperBound){
+            Bucket* buck=leaf->pointer[i];
+            num_records+=buck->size;
+            for(int j=0;j<buck->size;j++){
+                Record* rec = buck->sameKeyPointer[j];
+                sum_of_FG3+=(float)rec->FG3_PCT_home/1000;
+                displayRecord(rec);
             }
-            if (i == current->size - 1) {
-                current = current->ptr[i + 1];
-                break;
+            i++;
+            if(i>leaf->num_keys && (float)leaf->keys[N-1]/1000<upperBound && lowerBound!=upperBound){
+                leaf=leaf->pointer[N]; //Access the leaf to the right
+                index_nodes_accessed++;
             }
         }
     }
-    if (current->size < bucketSize) {
-        int i = 0;
-        while (key > current->key[i] && i < current->size) {
-            i++;
-        }
-        for (int j = current->size; j > i; j--) {
-            current->key[j] = current->key[j - 1];
-        }
-        current->key[i] = key;
-        current->size++;
-    } else {
-        node* newNode = createNode();
-        int virtualNode[bucketSize + 1];
-        for (int i = 0; i < bucketSize; i++) {
-            virtualNode[i] = current->key[i];
-        }
-        int i = 0, j;
-        while (key > virtualNode[i] && i < bucketSize) {
-            i++;
-        }
-        for (int j = bucketSize + 1; j > i; j--) {
-            virtualNode[j] = virtualNode[j - 1];
-        }
-        virtualNode[i] = key;
-        newNode->isLeaf = 1;
-        current->size = (bucketSize + 1) / 2;
-        newNode->size = bucketSize + 1 - (bucketSize + 1) / 2;
-        current->ptr[current->size] = newNode;
-        newNode->ptr[newNode->size] = current->ptr[bucketSize];
-        current->ptr[bucketSize] = NULL;
-        for (i = 0; i < current->size; i++) {
-            current->key[i] = virtualNode[i];
-        }
-        for (i = 0, j = current->size; i < newNode->size; i++, j++) {
-            newNode->key[i] = virtualNode[j];
-        }
-        if (current == btree->root) {
-            node* newRoot = createNode();
-            newRoot->key[0] = newNode->key[0];
-            newRoot->ptr[0] = current;
-            newRoot->ptr[1] = newNode;
-            newRoot->size = 1;
-            btree->root = newRoot;
-        } else {
-            shiftLevel(newNode->key[0], current, newNode);
-        }
-    }
 }
 
-int search(node* root, int key) {
-    if (root == NULL) {
-        return 0;
-    }
-    int i = 0;
-    while (i < root->size && key > root->key[i]) {
-        i++;
-    }
-    if (i < root->size && key == root->key[i]) {
-        return 1;
-    }
-    if (root->isLeaf) {
-        return 0;
-    }
-    return search(root->ptr[i], key);
+
+void createNewRoot(TreeNode*left, uint16_t,TreeNode*right);
+void createNewRoot(TreeNode*left,uint16_t key,TreeNode*right){
+    TreeNode* root=malloc(sizeof(TreeNode));
+    root->parent=NULL;
+    root->pointer[0]=left;
+    root->pointer[1] = right;
+    root->keys[0]=key;
+    root->isLeaf=0;
+    root->num_keys=1;
+    left->parent = root;
+    right->parent = root;
 }
 
-void display(node* root) {
-    if (root != NULL) {
-        for (int i = 0; i < root->size; i++) {
-            display(root->ptr[i]);
-            printf("%d ", root->key[i]);
-        }
-        display(root->ptr[root->size]);
-    }
+TreeNode* createNewLeaf();
+TreeNode* createNewLeaf(){
+    TreeNode* newLeaf=malloc(sizeof(TreeNode));
+    newLeaf->isLeaf=1;
+    newLeaf->num_keys=0;
+    newLeaf->parent=NULL;
+    return newLeaf;
 }
 
-void deleteNode(Btree* btree, int key) {
-    if (btree->root == NULL) {
+void insertIntoLeaf(TreeNode* leaf, uint16_t key, void* pointer);
+void insertIntoLeaf(TreeNode* leaf, uint16_t key, void* pointer){
+    int insertionPoint=0;
+    while(insertionPoint<leaf->num_keys && leaf->keys[insertionPoint]<key)
+        insertionPoint++; 
+    for(int i=leaf->num_keys;i>insertionPoint;i--){
+        leaf->keys[i]=leaf->keys[i-1];
+        leaf->pointer[i]=leaf->pointer[i-1];
+    }
+    leaf->keys[insertionPoint]=key;
+    leaf->pointer[insertionPoint]=pointer;
+    leaf->num_keys++;
+}
+
+int getLeftIndex(TreeNode* parent, TreeNode* left);
+int getLeftIndex(TreeNode* parent, TreeNode* left){
+    int left_index=0;
+    while(left_index <= parent->num_keys && parent->pointer[left_index]!=left)
+        left_index++;
+    return left_index;
+}
+
+void insertIntoNode(TreeNode* node, int left_index, int key, TreeNode* right);
+void insertIntoNode(TreeNode* node, int left_index, int key, TreeNode* right){
+    for (int i=node->num_keys;i>left_index;i--){
+        node->pointer[i+1]=node->pointer[i]; 
+        node->keys[i]=node->keys[i-1];
+    }
+    node->pointer[left_index+1]=right;
+    node->keys[left_index]=key;
+    node->num_keys++;
+}
+
+void splitNonLeafInsertion(TreeNode* old_node, int left_index, uint16_t key, TreeNode* right);
+void insertIntoParent(TreeNode* left, int key, TreeNode* right);
+
+void insertIntoParent(TreeNode* left, int key, TreeNode* right){
+    int left_index;
+    TreeNode* parent=left->parent;
+    if(parent==NULL){
+        createNewRoot(left,key,right);
         return;
     }
-    node* current = btree->root;
-    node* parent = NULL;
-    int isLeftChild = 1;
-    while (!current->isLeaf) {
-        parent = current;
-        isLeftChild
+    left_index=getLeftIndex(parent,left);
+    if(parent->num_keys<N){
+        insertIntoNode(parent,left_index,key,right);
+        return;
+    }
+    splitNonLeafInsertion(parent,left_index,key,right);
+}
+
+
+void splitNonLeafInsertion(TreeNode* old_node, int left_index, uint16_t key, TreeNode* right){
+    int split=ceil(N/2)+1, k_prime;
+    uint16_t tmp_keys[N+1];
+    TreeNode* tmp_pointers[N+2];
+    for(int i=0,j=0;i<old_node->num_keys+1;i++,j++){
+        if(j==left_index+1)
+            j++;
+        tmp_pointers[j]=old_node->pointer[i];
+    }
+    for(int i=0,j=0;i<old_node->num_keys;i++,j++){
+        if(j==left_index)
+            j++;
+        tmp_keys[j]=old_node->pointer[i];
+    }
+    tmp_pointers[left_index+1]=right;
+    tmp_keys[left_index]=key;
+
+    TreeNode* newNode=malloc(sizeof(TreeNode));
+    
+
+    for(int i=0;i<split;i++){
+        old_node->pointer[i]=tmp_pointers[i];
+        old_node->keys[i]=tmp_pointers[i];
+    }
+
+    old_node->num_keys=split;
+    old_node->pointer[split]=tmp_pointers[split];
+    k_prime = tmp_keys[split];
+
+    newNode->num_keys=0;
+    for(int i=split+1,j=0;i<N+1;i++,j++){
+        newNode->pointer[j]=tmp_pointers[i];
+        newNode->keys[j]=tmp_keys[i];
+        newNode->num_keys++;
+    }
+    newNode->pointer[newNode->num_keys]=tmp_pointers[-1];
+    free(tmp_pointers);
+    free(tmp_keys);
+    newNode->parent =old_node->parent;
+    TreeNode* child;
+    for(int i=0;i<=newNode->num_keys;i++){
+        child=newNode->pointer[i];
+        child->parent=newNode;
+    }
+    insertIntoParent(old_node,k_prime,newNode);
+
+    
+}
+
+
+
+void splitLeafInsertion(TreeNode* leaf,uint16_t key, void* pointer);
+void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
+    TreeNode* new_leaf=createNewLeaf();
+    uint16_t tmp_keys[N+1];
+    TreeNode* tmp_pointers[N+2];
+    int insertion_index=0,split,new_key;
+
+    while(insertion_index<N && leaf->keys[insertion_index]<key){
+        insertion_index++;
+
+    }
+
+    for (int i = 0, j = 0; i < leaf->num_keys; i++, j++) {
+        if (j == insertion_index) {
+            tmp_keys[j] = key;
+            tmp_pointers[j] = pointer;
+            j++;
+        }
+        tmp_keys[j] = leaf->keys[i];
+        tmp_pointers[j] = leaf->pointer[i];
+    }
+    split=ceil((N+1)/2);
+
+    for(int i=0;i<N;i++){
+        if(i<split){
+            leaf->pointer[i]=tmp_pointers[i];
+            leaf->keys[i]=tmp_keys[i];
+        }
+        else
+            leaf->pointer[i]=NULL;
+    }
+    leaf->num_keys=split;
+    for(int i=split,j=0;j<N;i++,j++){
+        if(j<N+1-split){
+            new_leaf->pointer[j]=tmp_pointers[i];
+            new_leaf->keys[j]=tmp_pointers[i];
+            new_leaf->num_keys++;
+        }
+        else
+            new_leaf->pointer[j]=NULL;
+    }
+    new_leaf->parent=leaf->parent;
+    free(tmp_keys);
+    free(tmp_pointers);
+    
+    new_leaf->pointer[N]=leaf->pointer[N];
+    leaf->pointer[N]=new_leaf;
+
+    new_key=new_leaf->keys[0];
+    insertIntoParent(leaf,new_key,new_leaf);
+
+}
+
+void insert(uint16_t key,void* pointer);
+void insert(uint16_t key,void* pointer){
+    if(root==NULL){ //If there does note exist a B+ Tree
+        root=malloc(sizeof(TreeNode));
+        root->parent=NULL;
+        root->pointer[0]=pointer;
+        root->keys[0]=key;
+        root->isLeaf=1;
+        root->num_keys=1;
+        return;
+    }
+    TreeNode* leaf=findLeaf(key); //Find the location of the leaf to insert into
+    if(leaf->num_keys<N){
+        insertIntoLeaf(leaf,key,pointer);
+        return;
+    }
+    splitLeafInsertion(leaf,key,pointer);
+}
+
+void brute_force(Record** Disk,float lowerBound, float upperBound);
+void brute_force(Record** Disk, float lowerBound, float upperBound){
+    int quantity=0;
+    for(int i=0;i<blockQuantity;i++){
+        for(int j=0;j<recordsPerBlock;j++){
+            if((float)Disk[i][j].FG_PCT_home/1000>=lowerBound && (float)Disk[i][j].FG_PCT_home/1000<=upperBound){
+                quantity++;
+                displayRecord(&Disk[i][j]);
+            }
+        }
+    }
+    printf("Total number of records found in the range %f to %f using the brute force method: %d\n",lowerBound,upperBound,quantity);
+}
+
+int main(){    
+    clock_t begin,end;
+    double time_spent;
+    Record** Disk=DiskAllocation(); //Store records into blocks inside disk
+
+
+    //Insert into B+ Tree
+    for(int i=0;i<blockQuantity;i++){ 
+        for(int j=0;j<recordsPerBlock;j++){
+            insert(Disk[i][j].FG_PCT_home,&Disk[i][j]);
+        }
+    }
+    
+
+    //////////////////////////////////////////////////////////////////
+    //Retrieve FG_PCT=0.5
+
+    begin=clock();
+    find(0.5,0.5);
+    end=clock(); 
+    time_spent = (end-begin)/CLOCKS_PER_SEC;
+    printf("Time taken to retrieve records with key value 0.5 using B+ tree: %lf seconds\n",time_spent);
+
+    begin=clock();
+    brute_force(Disk,0.5,0.5);
+    end=clock();
+    time_spent=(end-begin)/CLOCKS_PER_SEC;
+    printf("Time taken to retrieve records with key value 0.5 using brute force: %lf seconds\n",time_spent);
+
+    //////////////////////////////////////////////////////////////////
+    //Retrieve FG_PCT from 0.6 to 1
+    begin=clock();
+    find(0.6,1);
+    end=clock();
+    time_spent=(end-begin)/CLOCKS_PER_SEC;
+    printf("Time taken to retrive records with key values from 0.6 to 1 using B+ tree: %lf seconds\n",time_spent);
+
+    begin=clock();
+    brute_force(Disk,0.6,1);
+    end=clock();
+    time_spent=(end-begin)/CLOCKS_PER_SEC;
+    printf("Time taken to retrive records with key values from 0.6 to 1 using brute force: %lf seconds\n",time_spent);
+
+    //////////////////////////////////////////////////////////////////
+
+    return 0;
+}
+
+

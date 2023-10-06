@@ -416,6 +416,91 @@ void brute_force(Record** Disk, float lowerBound, float upperBound){
     printf("Total number of records found in the range %f to %f using the brute force method: %d\n",lowerBound,upperBound,quantity);
 }
 
+int get_neighbor_index(TreeNode* leaf);
+int get_neighbor_index(TreeNode* leaf){
+    int i;
+    for (i = 0; i <= leaf->parent->num_keys; i++)
+    if (leaf->parent->pointer[i] == leaf)
+      return i - 1;
+}
+
+TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer);
+TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer){
+    int i = 0;
+    int num_pointers;
+    
+    while (leaf->keys[i] != key){
+        i++;
+    }
+    for (++i; i < leaf->num_keys; i++){
+        leaf->keys[i - 1] = leaf->keys[i];
+    }
+    leaf->num_keys--;
+
+  if (leaf->isLeaf)
+    for (i = leaf->num_keys; i < N - 1; i++)
+      leaf->pointer[i] = NULL;
+  else
+    for (i = leaf->num_keys + 1; i < N; i++)
+      leaf->pointer[i] = NULL;
+
+  return leaf;
+
+}
+
+TreeNode*redistribute_nodes(TreeNode *root, TreeNode *leaf, TreeNode *neighbor, int neighbor_index,
+             int k_prime_index, int k_prime) {
+  int i;
+  TreeNode *temp;
+
+  if (neighbor_index != -1) {
+    if (!leaf->isLeaf)
+      leaf->pointer[leaf->num_keys + 1] = leaf->pointer[leaf->num_keys];
+    for (i = leaf->num_keys; i > 0; i--) {
+      leaf->keys[i] = leaf->keys[i - 1];
+      leaf->pointer[i] = leaf->pointer[i - 1];
+    }
+    if (!leaf->isLeaf) {
+      leaf->pointer[0] = neighbor->pointer[neighbor->num_keys];
+      temp = (TreeNode *)leaf->pointer[0];
+      temp->parent = leaf;
+      neighbor->pointer[neighbor->num_keys] = NULL;
+      leaf->keys[0] = k_prime;
+      leaf->parent->keys[k_prime_index] = neighbor->keys[neighbor->num_keys - 1];
+    } else {
+      leaf->pointer[0] = neighbor->pointer[neighbor->num_keys - 1];
+      neighbor->pointer[neighbor->num_keys - 1] = NULL;
+      leaf->keys[0] = neighbor->keys[neighbor->num_keys - 1];
+      leaf->parent->keys[k_prime_index] = leaf->keys[0];
+    }
+  }
+
+  else {
+    if (leaf->isLeaf) {
+      leaf->keys[leaf->num_keys] = neighbor->keys[0];
+      leaf->pointer[leaf->num_keys] = neighbor->pointer[0];
+      leaf->parent->keys[k_prime_index] = neighbor->keys[1];
+    } else {
+      leaf->keys[leaf->num_keys] = k_prime;
+      leaf->pointer[n->num_keys + 1] = neighbor->pointer[0];
+      temp = (TreeNode *)leaf->pointer[n->num_keys + 1];
+      temp->parent = n;
+      n->parent->keys[k_prime_index] = neighbor->keys[0];
+    }
+    for (i = 0; i < neighbor->num_keys - 1; i++) {
+      neighbor->keys[i] = neighbor->keys[i + 1];
+      neighbor->pointer[i] = neighbor->pointer[i + 1];
+    }
+    if (!leaf->isLeaf)
+      neighbor->pointer[i] = neighbor->pointer[i + 1];
+  }
+
+  leaf->num_keys++;
+  neighbor->num_keys--;
+
+  return root;
+}
+
 int main(){    
     clock_t begin,end;
     double time_spent;

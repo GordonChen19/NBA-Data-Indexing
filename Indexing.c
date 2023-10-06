@@ -404,6 +404,220 @@ void insert(uint16_t key,void* pointer){
     splitLeafInsertion(leaf,key,pointer);
 }
 
+
+TreeNode* merge(TreeNode* left, TreeNode* right)
+{
+    if(left->num_keys+right->num_keys>N) //check if number of keys match
+    {
+        printf("CHECK MERGE FUNCTION"); //debug
+        return;
+    } 
+    int start = left->num_keys;
+    for(int i = 0; i<right->num_keys;i++)
+    {
+        left->keys[start+i] = right->keys[i];
+        left->pointers[start+i+1] = right->pointers[i+1];
+        left->key[num_keys]++;
+    }
+    right = NULL;
+    return left;
+}
+
+
+
+void deleteSimple(TreeNode *leaf, int key, int replaceKey=0)
+{
+    int i = 0;
+    int num_pointers;
+    while (leaf->keys[i] != key){
+        i++;
+    }
+    if(leaf->isLeaf)
+    {
+        for (++i; i < leaf->num_keys; i++)
+        {
+            leaf->keys[i - 1] = leaf->keys[i];
+        }
+        leaf->num_keys--;
+        for (i = leaf->num_keys; i < N - 1; i++)
+        leaf->pointer[i] = NULL;
+    }
+    else
+        leaf->keys[i] = replaceKey;
+}
+void deleteMinimum(TreeNode *leaf, int key)
+{
+    int i = 0;
+    int num_pointers;
+    
+    while (leaf->keys[i] != key){
+        i++;
+    }
+    TreeNode *parent = leaf->parent;
+    int key = leaf->keys[i];
+    int median;
+    TreeNode *leftSibling=NULL;
+    TreeNode *rightSibling=NULL;
+    for(int id = 0; id<parent->num_keys; id++) // Searching for siblings to merge the nodes
+    {
+        if(parent->keys[id]>=key)
+        {   
+            if(id!=0) 
+            leftSibling = parent->pointers[id-1];
+            rightSibling = parent->pointers[id+1];
+            break;
+        }
+    }
+
+    // borrow from sibling
+
+    if(leftSibling!=NULL){
+        if(leftSibling->num_keys>ceil(N/2+1)){
+            for(int j=1; j<leaf->num_keys; j++){
+                leaf->keys[j] = leaf->keys[j-1];
+                leaf->pointers[j] = leaf->pointers[j-1];
+            }
+            leaf->keys[0] = leftSibling->keys[leftSibling->num_keys-1];
+            leaf->pointers[0] = leftSibling->pointers[leftSibling->num_keys-1];
+            leftSibling->keys[leftSibling->num_keys-1] = NULL;
+            leftSibling->pointers[leftSibling->num_keys-1] = NULL;
+            leftSibling->num_keys--;
+            int median_pos = ceil((leftSibling->num_keys + leaf->num_keys)+1)/2;
+            int median_key;
+            if(median_pos<leftSibling->num_keys){
+                median_key = leftSibling->keys[median_pos-1];
+            }
+            else median_key = leaf->keys[median_pos-leftSibling->num_keys-1];
+            return insertIntoParent(leftSibling, median_key,leaf);
+        }
+        else if (rightSibling!=NULL)
+        {
+            if(rightSibling->num_keys>ceil(N/2+1)){
+
+                leaf->keys[leaf->num_keys] = rightSibling->keys[0];
+                leaf->pointers[leaf->num_keys] = rightSibling->pointers[0];
+                for(int j=0; j<rightSibling->num_keys-1; j++){
+                    rightSibling->keys[j] = rightSibling->keys[j+1];
+                    rightSibling->pointers[j] = rightSibling->pointers[j+1];
+                }
+                rightSibling->keys[rightSibling->num_keys-1] = NULL;
+                rightSibling->pointers[rightSibling->num_keys-1] = NULL;
+                rightSibling->num_keys--;
+                int median_pos = ceil((rightSibling->num_keys + leaf->num_keys)+1)/2;
+                int median_key;
+                if(median_pos<leaf->num_keys){
+                    median_key = leaf->keys[median_pos-1];
+                }
+                else median_key = rightSibling->keys[median_pos-leftSibling->num_keys-1];
+                return insertIntoParent(leaf, median_key,rightSibling);
+            }
+        }
+        else leaf = merge(leftSibling, leaf);
+    }
+    else leaf = merge(leaf, rightSibling);
+
+}
+
+TreeNode findInternal(TreeNode *leaf, int key) //find if there is an internal/root node that contains the key
+{
+    TreeNode *parent = leaf->parent;
+    while(parent->root!=NULL)
+    {
+        for(int j = 0; j<parent->num_keys; j++){
+            if(parent->keys[j]==key){
+                return parent;
+            }
+        }
+        parent = parent->parent;
+    }
+    return NULL;
+}
+
+void deleteRange(float lowerBound, float upperBound);
+void deleteRange(float lowerBound, float upperBound){
+    if(root==NULL) return;
+
+
+    TreeNode* leaf = findLeaf(lowerBound); //Get node that contains the lowerBound
+
+    
+
+    //Get first record in block that is equal to lowerBound
+    int i;
+    for(i=0; i<leaf->num_keys;i++)
+    {
+        if(leaf->keys[i]>=lowerBound && leaf->keys[i]<=upperBound)
+            break;
+    }
+    while(i<=leaf->num_keys && (float)leaf->keys[i]/1000<=upperBound)
+    {
+        int key = leaf->keys[i]
+        TreeNode *internalNode = findInternal(leaf, key)
+
+
+        if(internalNode==NULL) // is not internal node
+        {
+            if(leaf->num_keys>ceil(N/2+1)) //normal delete
+            {
+                deleteSimple(leaf, key);
+                i++;
+            }
+            else if(leaf->num_keys==ceil(N/2+1))
+            {
+                deleteMinimum(leaf, key); 
+            }
+        }
+        else{ // key exist in an internal node
+            // more than minimum for both
+            if(internalNode->num_keys>ceil(N/2+1)){
+                if(leaf->num_keys>ceil(N/2+1))
+                deleteSimple(leaf, key);
+                else deleteMinimum(leaf, key);
+                
+                deleteSimple(internalNode);
+            }
+            else {
+                if(leaf->num_keys>ceil(N/2+1))
+                deleteSimple(leaf, key);
+                else deleteMinimum(leaf, key);
+
+                if(internalNode!=root)
+                deleteMinimum(internalNode, key, leaf[i+1]);
+
+                if(internalNode==root)
+                if(internalNode->num_keys>1)
+                    deleteMinimum(internalNode, key, leaf[i+1]);
+
+                else{ // merge into root 
+                    TreeNode* leftChild = internalNode->pointer[0];
+                    TreeNode* rightChild = internalNode->pointer[1];
+
+                    if(leftChild->num_keys>ceil(N/2+1))
+                    {
+                        internalNode->keys[0] = leftChild->keys[leftChild->num_keys];
+
+                    }
+                    else if(rightChild->num_keys>ceil(N/2+1))
+                    {
+                        internalNode->keys[0] = rightChild->keys[rightChild->num_keys];
+                    }
+                    else root = merge(leftChild, rightChild);
+                }
+            }
+            deleteMinimum(leaf, key);
+
+        }
+        if(i>=leaf->num_keys)
+            {
+                leaf = leaf->pointer(N); // go to the next node;
+                i = 0;
+            }
+    }
+}
+
+
+
+
 void brute_force(Record** Disk,float lowerBound, float upperBound);
 void brute_force(Record** Disk, float lowerBound, float upperBound){
     int quantity=0;

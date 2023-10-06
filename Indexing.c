@@ -482,10 +482,10 @@ TreeNode*redistribute_nodes(TreeNode *root, TreeNode *leaf, TreeNode *neighbor, 
       leaf->parent->keys[k_prime_index] = neighbor->keys[1];
     } else {
       leaf->keys[leaf->num_keys] = k_prime;
-      leaf->pointer[n->num_keys + 1] = neighbor->pointer[0];
-      temp = (TreeNode *)leaf->pointer[n->num_keys + 1];
-      temp->parent = n;
-      n->parent->keys[k_prime_index] = neighbor->keys[0];
+      leaf->pointer[leaf->num_keys + 1] = neighbor->pointer[0];
+      temp = (TreeNode *)leaf->pointer[leaf->num_keys + 1];
+      temp->parent = leaf;
+      leaf->parent->keys[k_prime_index] = neighbor->keys[0];
     }
     for (i = 0; i < neighbor->num_keys - 1; i++) {
       neighbor->keys[i] = neighbor->keys[i + 1];

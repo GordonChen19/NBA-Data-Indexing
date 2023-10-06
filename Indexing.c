@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
@@ -9,7 +10,8 @@ int blockSize; //400 Bytes
 int recordSize;
 int recordsPerBlock;
 int blockQuantity;
-const int N=38;
+const int N = 38;
+
 typedef struct{
     uint16_t year; // 12 bits for year (limited to 0-4095)
     uint8_t month; // 4 bits for month (limited to 1-12)
@@ -26,8 +28,8 @@ typedef struct{
 
 typedef struct TreeNode{
     struct TreeNode* parent; //8 bytes
-    void* pointer[N+1]; //8*(N+1)
-    uint16_t keys[N]; //2*N
+    void* pointer[39]; //8*(N+1)
+    uint16_t keys[38]; //2*N
     uint8_t isLeaf; //1
     uint8_t num_keys; //1
 }TreeNode; //N==38
@@ -281,8 +283,8 @@ void insertIntoParent(TreeNode* left, int key, TreeNode* right){
 
 void splitNonLeafInsertion(TreeNode* old_node, int left_index, uint16_t key, TreeNode* right){
     int split=ceil(N/2)+1, k_prime;
-    uint16_t tmp_keys[N+1];
-    TreeNode* tmp_pointers[N+2];
+    uint16_t tmp_keys[39];
+    TreeNode* tmp_pointers[40];
     for(int i=0,j=0;i<old_node->num_keys+1;i++,j++){
         if(j==left_index+1)
             j++;
@@ -333,8 +335,8 @@ void splitNonLeafInsertion(TreeNode* old_node, int left_index, uint16_t key, Tre
 void splitLeafInsertion(TreeNode* leaf,uint16_t key, void* pointer);
 void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
     TreeNode* new_leaf=createNewLeaf();
-    uint16_t tmp_keys[N+1];
-    TreeNode* tmp_pointers[N+2];
+    uint16_t tmp_keys[39];
+    TreeNode* tmp_pointers[40];
     int insertion_index=0,split,new_key;
 
     while(insertion_index<N && leaf->keys[insertion_index]<key){
@@ -499,6 +501,38 @@ TreeNode*redistribute_nodes(TreeNode *root, TreeNode *leaf, TreeNode *neighbor, 
   neighbor->num_keys--;
 
   return root;
+             }
+
+
+void delete_records_less_than_key_from_disk(Record** Disk, float FGPCT_value){
+    int index;
+    TreeNode* target_leaf = findLeaf(FGPCT_value);
+    for (int k = 0; k<target_leaf->num_keys; k++){
+        if(FGPCT_value == target_leaf->keys[k]){
+            index = k;
+            break;
+        }
+    }
+    for (int i = 0; i < blockQuantity; i++){
+        if(Disk[i] == target_leaf->pointer[index]){
+            break;
+        } 
+        else{
+            for(int j=0; j<recordsPerBlock; j++){
+                Disk[i][j].year = NULL;
+                Disk[i][j].month = NULL;
+                Disk[i][j].day = NULL;
+                Disk[i][j].TEAM_ID_home = NULL;
+                Disk[i][j].PTS_home = NULL;
+                Disk[i][j].FG_PCT_home = NULL;
+                Disk[i][j].FG3_PCT_home = NULL;
+                Disk[i][j].FT_PCT_home = NULL;
+                Disk[i][j].AST_home = NULL;
+                Disk[i][j].REB_home = NULL;
+                Disk[i][j].HOME_TEAM_WINS = NULL;
+            }
+        }
+    }   
 }
 
 int main(){    
@@ -506,6 +540,7 @@ int main(){
     double time_spent;
     Record** Disk=DiskAllocation(); //Store records into blocks inside disk
 
+    printf("wtf");
 
     //Insert into B+ Tree
     for(int i=0;i<blockQuantity;i++){ 
@@ -545,7 +580,9 @@ int main(){
     printf("Time taken to retrive records with key values from 0.6 to 1 using brute force: %lf seconds\n",time_spent);
 
     //////////////////////////////////////////////////////////////////
-
+    delete_records_less_than_key_from_disk(Disk, 0.35);
+    printf("After deletion:");
+    find(0,0.35);
     return 0;
 }
 

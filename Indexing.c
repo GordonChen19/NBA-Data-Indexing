@@ -403,83 +403,23 @@ void insert(uint16_t key,void* pointer){
 }
 
 
-TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer);
-TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer){
-    int i = 0;
-    int num_pointers;
-    
-    while (leaf->keys[i] != key){
-        i++;
+TreeNode* merge(TreeNode* left, TreeNode* right)
+{
+    if(left->num_keys+right->num_keys>N) //check if number of keys match
+    {
+        printf("CHECK MERGE FUNCTION"); //debug
+        return;
+    } 
+    int start = left->num_keys;
+    for(int i = 0; i<right->num_keys;i++)
+    {
+        left->keys[start+i] = right->keys[i];
+        left->pointers[start+i+1] = right->pointers[i+1];
+        left->key[num_keys]++;
     }
-    for (++i; i < leaf->num_keys; i++){
-        leaf->keys[i - 1] = leaf->keys[i];
-    }
-    leaf->num_keys--;
-
-  if (leaf->isLeaf)
-    for (i = leaf->num_keys; i < N - 1; i++)
-      leaf->pointer[i] = NULL;
-  else
-    for (i = leaf->num_keys + 1; i < N; i++)
-      leaf->pointer[i] = NULL;
-
-  return leaf;
-
+    right = NULL;
+    return left;
 }
-
-TreeNode*redistribute_nodes(TreeNode *root, TreeNode *leaf, TreeNode *neighbor, int neighbor_index,
-             int k_prime_index, int k_prime) {
-  int i;
-  TreeNode *temp;
-
-  if (neighbor_index != -1) {
-    if (!leaf->isLeaf)
-      leaf->pointer[leaf->num_keys + 1] = leaf->pointer[leaf->num_keys];
-    for (i = leaf->num_keys; i > 0; i--) {
-      leaf->keys[i] = leaf->keys[i - 1];
-      leaf->pointer[i] = leaf->pointer[i - 1];
-    }
-    if (!leaf->isLeaf) {
-      leaf->pointer[0] = neighbor->pointer[neighbor->num_keys];
-      temp = (TreeNode *)leaf->pointer[0];
-      temp->parent = leaf;
-      neighbor->pointer[neighbor->num_keys] = NULL;
-      leaf->keys[0] = k_prime;
-      leaf->parent->keys[k_prime_index] = neighbor->keys[neighbor->num_keys - 1];
-    } else {
-      leaf->pointer[0] = neighbor->pointer[neighbor->num_keys - 1];
-      neighbor->pointer[neighbor->num_keys - 1] = NULL;
-      leaf->keys[0] = neighbor->keys[neighbor->num_keys - 1];
-      leaf->parent->keys[k_prime_index] = leaf->keys[0];
-    }
-  }
-
-  else {
-    if (leaf->isLeaf) {
-      leaf->keys[leaf->num_keys] = neighbor->keys[0];
-      leaf->pointer[leaf->num_keys] = neighbor->pointer[0];
-      leaf->parent->keys[k_prime_index] = neighbor->keys[1];
-    } else {
-      leaf->keys[leaf->num_keys] = k_prime;
-      leaf->pointer[leaf->num_keys + 1] = neighbor->pointer[0];
-      temp = (TreeNode *)leaf->pointer[leaf->num_keys + 1];
-      temp->parent = leaf;
-      leaf->parent->keys[k_prime_index] = neighbor->keys[0];
-    }
-    for (i = 0; i < neighbor->num_keys - 1; i++) {
-      neighbor->keys[i] = neighbor->keys[i + 1];
-      neighbor->pointer[i] = neighbor->pointer[i + 1];
-    }
-    if (!leaf->isLeaf)
-      neighbor->pointer[i] = neighbor->pointer[i + 1];
-  }
-
-  leaf->num_keys++;
-  neighbor->num_keys--;
-
-  return root;
-}
-
 
 
 
@@ -526,13 +466,57 @@ void deleteMinimum(TreeNode *leaf, int key)
             break;
         }
     }
-    if(leftSibling!=NULL)
-    {
-        leftSibling->keys[i+1];
+
+    // borrow from sibling
+
+    if(leftSibling!=NULL){
+        if(leftSibling->num_keys>ceil(N/2+1)){
+            for(int j=1; j<leaf->num_keys; j++){
+                leaf->keys[j] = leaf->keys[j-1];
+                leaf->pointers[j] = leaf->pointers[j-1];
+            }
+            leaf->keys[0] = leftSibling->keys[leftSibling->num_keys-1];
+            leaf->pointers[0] = leftSibling->pointers[leftSibling->num_keys-1];
+            leftSibling->keys[leftSibling->num_keys-1] = NULL;
+            leftSibling->pointers[leftSibling->num_keys-1] = NULL;
+            leftSibling->num_keys--;
+            int median_pos = ceil((leftSibling->num_keys + leaf->num_keys)+1)/2;
+            int median_key;
+            if(median_pos<leftSibling->num_keys){
+                median_key = leftSibling->keys[median_pos-1];
+            }
+            else median_key = leaf->keys[median_pos-leftSibling->num_keys-1];
+            return insertIntoParent(leftSibling, median_key,leaf);
+        }
+        else if (rightSibling!=NULL)
+        {
+            if(rightSibling->num_keys>ceil(N/2+1)){
+
+                leaf->keys[leaf->num_keys] = rightSibling->keys[0];
+                leaf->pointers[leaf->num_keys] = rightSibling->pointers[0];
+                for(int j=0; j<rightSibling->num_keys-1; j++){
+                    rightSibling->keys[j] = rightSibling->keys[j+1];
+                    rightSibling->pointers[j] = rightSibling->pointers[j+1];
+                }
+                rightSibling->keys[rightSibling->num_keys-1] = NULL;
+                rightSibling->pointers[rightSibling->num_keys-1] = NULL;
+                rightSibling->num_keys--;
+                int median_pos = ceil((rightSibling->num_keys + leaf->num_keys)+1)/2;
+                int median_key;
+                if(median_pos<leaf->num_keys){
+                    median_key = leaf->keys[median_pos-1];
+                }
+                else median_key = rightSibling->keys[median_pos-leftSibling->num_keys-1];
+                return insertIntoParent(leaf, median_key,rightSibling);
+            }
+        }
+        else leaf = merge(leftSibling, leaf);
     }
+    else leaf = merge(leaf, rightSibling);
+
 }
 
-TreeNode findInternal(TreeNode *leaf, int key)
+TreeNode findInternal(TreeNode *leaf, int key) //find if there is an internal/root node that contains the key
 {
     TreeNode *parent = leaf->parent;
     while(parent->root!=NULL)
@@ -545,9 +529,6 @@ TreeNode findInternal(TreeNode *leaf, int key)
         parent = parent->parent;
     }
     return NULL;
-}
-void merge(TreeNode* left, TreeNode* right){
-
 }
 
 void deleteRange(float lowerBound, float upperBound);
@@ -571,6 +552,7 @@ void deleteRange(float lowerBound, float upperBound){
         int key = leaf->keys[i]
         TreeNode *internalNode = findInternal(leaf, key)
 
+
         if(internalNode==NULL) // is not internal node
         {
             if(leaf->num_keys>ceil(N/2+1)) //normal delete
@@ -580,40 +562,47 @@ void deleteRange(float lowerBound, float upperBound){
             }
             else if(leaf->num_keys==ceil(N/2+1))
             {
-                deleteMinimum(leaf, key); // TO IMPLEMENT
-                // borrow left, borrow right
-                // if cannot, merge all of them
+                deleteMinimum(leaf, key); 
             }
         }
         else{ // key exist in an internal node
             // more than minimum for both
-            if(leaf->num_keys>ceil(N/2+1) && internalNode->num_keys>ceil(N/2+1)){
+            if(internalNode->num_keys>ceil(N/2+1)){
+                if(leaf->num_keys>ceil(N/2+1))
                 deleteSimple(leaf, key);
+                else deleteMinimum(leaf, key);
                 
-                if(parent!=root)
-                deleteSimple(parent, key, leaf[i+1]);
+                deleteSimple(internalNode);
+            }
+            else {
+                if(leaf->num_keys>ceil(N/2+1))
+                deleteSimple(leaf, key);
+                else deleteMinimum(leaf, key);
 
-                if(parent==root)
-                if(parent->num_keys>1)
-                    deleteSimple(parent, key, leaf[i+1]);
+                if(internalNode!=root)
+                deleteMinimum(internalNode, key, leaf[i+1]);
+
+                if(internalNode==root)
+                if(internalNode->num_keys>1)
+                    deleteMinimum(internalNode, key, leaf[i+1]);
 
                 else{ // merge into root 
-                    TreeNode* leftChild = parent->pointer[0];
-                    TreeNode* rightChild = parent->pointer[1];
+                    TreeNode* leftChild = internalNode->pointer[0];
+                    TreeNode* rightChild = internalNode->pointer[1];
 
                     if(leftChild->num_keys>ceil(N/2+1))
                     {
+                        internalNode->keys[0] = leftChild->keys[leftChild->num_keys];
 
                     }
                     else if(rightChild->num_keys>ceil(N/2+1))
                     {
-
+                        internalNode->keys[0] = rightChild->keys[rightChild->num_keys];
                     }
-                    else merge(leftChild, rightChild)
+                    else root = merge(leftChild, rightChild);
                 }
             }
-
-            //Minimum of key in node TO IMPLEMENT
+            deleteMinimum(leaf, key);
 
         }
         if(i>=leaf->num_keys)
@@ -621,8 +610,6 @@ void deleteRange(float lowerBound, float upperBound){
                 leaf = leaf->pointer(N); // go to the next node;
                 i = 0;
             }
-        if(leaf->num_keys>=)
-    
     }
 }
 

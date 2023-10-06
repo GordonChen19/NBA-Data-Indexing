@@ -546,6 +546,9 @@ TreeNode findInternal(TreeNode *leaf, int key)
     }
     return NULL;
 }
+void merge(TreeNode* left, TreeNode* right){
+
+}
 
 void deleteRange(float lowerBound, float upperBound);
 void deleteRange(float lowerBound, float upperBound){
@@ -553,6 +556,8 @@ void deleteRange(float lowerBound, float upperBound){
 
 
     TreeNode* leaf = findLeaf(lowerBound); //Get node that contains the lowerBound
+
+    
 
     //Get first record in block that is equal to lowerBound
     int i;
@@ -565,6 +570,7 @@ void deleteRange(float lowerBound, float upperBound){
     {
         int key = leaf->keys[i]
         TreeNode *internalNode = findInternal(leaf, key)
+
         if(internalNode==NULL) // is not internal node
         {
             if(leaf->num_keys>ceil(N/2+1)) //normal delete
@@ -575,15 +581,38 @@ void deleteRange(float lowerBound, float upperBound){
             else if(leaf->num_keys==ceil(N/2+1))
             {
                 deleteMinimum(leaf, key); // TO IMPLEMENT
-
+                // borrow left, borrow right
+                // if cannot, merge all of them
             }
         }
-        else{
+        else{ // key exist in an internal node
             // more than minimum for both
             if(leaf->num_keys>ceil(N/2+1) && internalNode->num_keys>ceil(N/2+1)){
                 deleteSimple(leaf, key);
+                
+                if(parent!=root)
                 deleteSimple(parent, key, leaf[i+1]);
+
+                if(parent==root)
+                if(parent->num_keys>1)
+                    deleteSimple(parent, key, leaf[i+1]);
+
+                else{ // merge into root 
+                    TreeNode* leftChild = parent->pointer[0];
+                    TreeNode* rightChild = parent->pointer[1];
+
+                    if(leftChild->num_keys>ceil(N/2+1))
+                    {
+
+                    }
+                    else if(rightChild->num_keys>ceil(N/2+1))
+                    {
+
+                    }
+                    else merge(leftChild, rightChild)
+                }
             }
+
             //Minimum of key in node TO IMPLEMENT
 
         }

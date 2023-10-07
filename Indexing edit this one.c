@@ -51,7 +51,16 @@ typedef struct Q{
 }Queue;
 
 
-
+void removeBucket(TreeNode* leaf, int index){
+    Bucket* temp = leaf->pointer[index];
+    while(temp->next!=NULL)
+    {
+        Bucket* temp2 = temp;
+        temp = temp->next;
+        temp2=NULL;
+    }
+    return;
+}
 
 Record** DiskAllocation();
 Record** DiskAllocation() {

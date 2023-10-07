@@ -159,6 +159,8 @@ void splitLeafInsertion(TreeNode* leaf,uint16_t key, void* pointer,int insertion
 void insert(uint16_t key,void* pointer);
 void brute_force(Record** Disk,float lowerBound, float upperBound);
 
+void removeParent(TreeNode* node, int index, TreeNode* parent);
+void remove(int key);
 
 
 
@@ -494,7 +496,375 @@ void insert(uint16_t key,void* pointer){
     }
 }
 
+int* insertIntoNode(int *arr, int key, int len)
+{
+    int index=0;
+    for(int i=0; i<len; i++)
+    {
+        if(key<arr[i]){
+            index=i;
+            break;
+        }
+        if(i==len-1){
+            index=len;
+            break;
+        }
+    }
+    for(int i=len; i>index; i--){
+        arr[i]=arr[i-1];
+    }
+    arr[index] = key;
+    return arr;
+}
+TreeNode** insertIntoChild(TreeNode** node, TreeNode* child, int len, int index)
+{
+    for(int i=len, i>index; i--)
+    {
+        node[i] = node[i-1];
+    }
+    node[index] = child;
+    return node;
+}
 
+void remove(int key)
+{
+    // Acquire the node possibly containing the key
+    // Get the index of the node from parent, as well as sibling nodes
+    TreeNode *leaf = findLeaf(key);
+    int leaf_index=-1;
+
+    for(int i=0; i<leaf->parent->num_keys+1; i++)
+    {
+        if(leaf==leaf->parent->pointer[i])
+        {
+            leaf_index = i;
+            break;
+        }
+    }
+
+    int left_index = leaf_index-1;
+    int right_index = leaf_index+1;
+
+    // Check if the node contains the key
+
+    int key_index=-1;
+    for(int i=0; i<leaf->num_keys; i++)
+    {
+        if(leaf->keys[i]==key)
+        {
+            key_index = i;
+            break;
+        }
+    }
+
+    if(key_index==-1) return;
+
+    // remove from node if key is in node
+    removeBucket(leaf, key_index);
+
+    for(int i = key_index; i<leaf->num_keys-1; i++)
+    {
+        leaf->keys[i] = leaf->keys[i+1];
+        leaf->pointer[i] = leaf->pointer[i+1];
+    }
+    leaf->keys[node->num_keys-1] = 0;    
+    leaf->num_keys--;
+
+    // if node is root and is empty
+    if(leaf==root && leaf->num_keys==0)
+    {
+        root = NULL;
+        return;
+    }
+
+    // satisfy minimum condition
+    if(leaf->num_keys>=floor((N+1)/2)) return;
+
+    // not satisfy
+    if(left_index>=0) //left sibling exists
+    {
+        TreeNode* leftSibling = leaf->parent->pointer[left_index];
+        if(leftSibling->num_keys>floor((N+1)/2))
+        {
+            // borrow last element of left for leaf
+            for(int i=0; i<leaf->num_keys; i++)
+            {
+                leaf->keys[i+1] = leaf->keys[i];
+                leaf->pointer[i+1] = leaf->pointer[i];
+            }
+            leaf->keys[0] = leftSibling->keys[leftSibling->num_keys-1];
+            leaf->pointer[0] = leftSibling->pointer[leftSibling->num_keys-1];
+            
+            // update num_keys
+            leaf->num_keys++;
+            leftSibling->num_keys--;
+
+            //update parent key with new last element of left
+            leaf->parent->keys[left_index] = leftSibling->keys[leftSibling->num_keys-1];
+            return;
+        }
+    }
+
+    if(right_index<=leaf->parent->num_keys) //if right side exist
+    {
+        TreeNode* rightSibling = leaf->parent->pointer[right_index];
+        if(rightSibling->num_keys>floor((N+1)/2))
+        {
+            leaf->keys[leaf->num_keys] = rightSibling->keys[0];
+            leaf->pointer[leaf->num_keys] = rightSibling->pointer[0];
+            leaf->num_keys++;
+            for(int i=0; i<rightSibling->num_keys; i++)
+            {
+                rightSibling->keys[i] = leaf->keys[i+1];
+                rightSibling->pointer[i] = leaf->pointer[i+1];
+            }
+            rightSibling->num_keys--;
+            leaf->parent->keys[right_index-1] = rightSibling->keys[0];
+            return;
+        }
+    }
+    //Cant borrow from any siblings
+    // merge nodes
+    if(left_index>=0) // merge left sibling
+    {
+        TreeNode* leftSibling = leaf->parent->pointer[left_index];
+        for(int i=0; i<leaf->num_keys; i++)
+        {
+            leftSibling->keys[leftSibling->num_keys+i] = leaf->keys[i];
+            leftSibling->pointer[leftSibling->num_keys+i] = leaf->pointer[i];
+        }
+        leftSibling->num_keys+=leaf->num_keys;
+        leftSibling->pointer[N] = leaf->pointer[N];
+        removeParent(leaf, left_index, leaf->parent);
+        free(leaf);
+        return;
+    }
+    if(right_index<=leaf->parent->num_keys)
+    {
+        TreeNode* rightSibling = leaf->parent->pointer[right_index];
+        for(int i=0; i<rightSibling->num_keys; i++)
+        {
+            leaf->keys[leaf->num_keys+i] = rightSibling->keys[i];
+            leaf->pointer[leaf->num_keys+i] = rightSibling->pointer[i];
+        }
+        leaf->num_keys+=rightSibling->num_keys;
+        leaf->pointer[N] = rightSibling->pointer[N];
+        removeParent(rightSibling, right_index-1, leaf->parent);
+        free(rightSibling);
+        return;
+    }
+}
+void removeParent(TreeNode* node, int index, TreeNode* parent)
+{
+    TreeNode* to_remove = node;
+    TreeNode* temp = parent;
+    TreeNode* key = temp->item[index];
+
+    if(temp==root && temp->num_keys==1) //if is root
+    {
+        if(to_remove==temp->pointer[0])
+        {
+            free(to_remove);
+            root = temp->pointer[1];
+            free(temp);
+            return;
+        }
+        if(to_remove==temp->pointer[1])
+        {
+            free(to_remove);
+            root = temp->pointer[0];
+            free(temp);
+            return;
+        }
+    }
+
+    int remove_index=-1;
+    for(int i=0; i<temp->num_keys+1; i++)
+    {
+        if(temp->pointer[i]==to_remove)
+        {
+            remove_index=i;
+        }
+    }
+    for(int i=index; i<temp->num_keys-1; i++)
+    {
+        temp->keys[i] = temp->keys[i+1];
+    }
+    temp->keys[temp->num_keys-1] = NULL;
+    temp->pointer[temp->num_keys-1] = NULL;
+
+    if(remove_index==-1) return;
+
+    for(int i=remove_index; i<temp->num_keys; i++)
+    {
+        temp->pointer[i] = temp->pointer[i+1];
+    }
+    temp->num_keys--;
+
+    if(temp==root) return;
+    if(temp->num_keys>=floor((N+1)/2)) return;
+
+    int node_index=-1;
+
+    for(int i=0; i<temp->parent->num_keys+1; i++)
+    {
+        if(temp==temp->parent->pointer[i])
+        {
+            node_index = i;
+            break;
+        }
+    }
+
+    int left_index = node_index-1;
+    int right_index = node_index+1;
+
+    if(left_index>=0)
+    {
+        TreeNode* leftSibling = temp->parent->pointer[left_index];
+        if(leftSibling->num_keys>floor((N+1)/2))
+        {
+            int copy[temp->num_keys+1];
+            for(int i=0; i<temp->num_keys; i++)
+            {
+                copy[i] = temp->keys[i];
+            }
+            copy = insertIntoNode(copy, temp->parent->item[left_index], temp->num_keys);
+            for(int i=0; i<temp->num_keys+1; i++)
+            {
+                temp->keys[i] = copy[i];
+            }
+            temp->parent->keys[left_index] = leftSibling->keys[leftSibling->num_keys-1];
+            
+            TreeNode** pointerCopy = malloc(sizeof(TreeNode)*(temp->num_keys+2))
+            for(int i=0; i<temp->num_keys+1; i++)
+            {
+                pointerCopy[i] = temp->pointer[i];
+            }
+            pointerCopy = insertIntoChild(pointerCopy, leftSibling->pointer[leftSibling->num_keys], temp->num_keys, 0);
+
+            for(int i=0; i<temp->num_keys+2; i++)
+            {
+                temp->pointer[i] = pointerCopy[i];
+            }
+            temp->num_keys++;
+            leftSibling->num_keys--;
+            return;
+        }
+    }
+    
+    if(right_index<=temp->parent->num_keys)
+    {
+        TreeNode* rightSibling = temp->parent->pointer[right_index];
+        if(rightSibling->num_keys>floor((N+1)/2))
+        {
+            int copy[temp->num_keys+1];
+            for(int i=0; i<temp->num_keys; i++)
+            {
+                copy[i] = temp->keys[i];
+            }
+            copy = insertIntoNode(copy, temp->parent->item[node_index], temp->num_keys);
+            for(int i=0; i<temp->num_keys+1; i++)
+            {
+                temp->keys[i] = copy[i];
+            }
+            temp->parent->keys[node_index] = rightSibling->keys[0];
+            
+            temp->pointer[N] = rightSibling->pointer[0];
+            for(int i=0; i<rightSibling->num_keys; i++)
+            {
+                rightSibling->pointer[i] = rightSibling->pointer[i+1];
+            }
+            rightSibling->pointer[rightSibling->num_keys] = NULL;
+            temp->num_keys++;
+            rightSibling->num_keys--;
+            return;
+        }
+    }
+
+    //merge
+
+    if(left_index>=0)
+    { // left_sibling exists
+        TreeNode* leftSibling = temp->parent->pointer[left_index];
+
+        leftSibling->keys[leftSibling->num_keys] = temp->parent->keys[left_index];
+        //merge two leaf node
+        for(int i=0; i<temp->num_keys; i++){
+            leftSibling->keys[leftSibling->num_keys+i+1]=temp->keys[i];
+        }
+        for(int i=0; i<temp->num_keys+1;i++){
+            leftSibling->pointer[leftSibling->num_keys+i+1] = temp->pointer[i];
+            temp->pointer[i]->parent = leftSibling;
+        }
+        for(int i=0; i<temp->num_keys+1; i++){
+            temp->pointer[i] = NULL;
+        }
+        leftSibling->num_keys+=leftSibling->num_keys+temp->num_keys+1;
+        //delete recursion
+        removeParent(temp, left_index, temp->parent);
+        return;
+    }
+    if(right_index<=temp->parent->num_keys){ // right_sibiling exists
+        TreeNode* rightSibling = temp->parent->pointer[right_index]
+        temp->keys[temp->num_keys] = temp->parent->keys[right_index-1];
+        //merge two leaf node
+        for(int i=0; i<rightSibling->num_keys; i++){
+            temp->keys[temp->num_keys+1+i]=rightSibling->keys[i];
+        }
+        for(int i=0; i<rightSibling->num_keys+1;i++){
+            temp->pointer[temp->num_keys+i+1] = rightSibling->pointer[i];
+            rightSibling->pointer[i]->parent=rightSibling;
+        }
+        for(int i=0; i<rightSibling->num_keys+1; i++){
+            rightSibling->pointer[i] = NULL;
+        }
+        //edit pointer
+        rightSibling->num_keys = rightSibling->num_keys+temp->num_keys+1;
+        //parent property edit
+        removeParent(rightSibling, right_index-1, temp->parent);
+        return;
+    }
+    if(left_index>=0)
+    { // left_sibling exists
+        TreeNode* leftSibling = temp->parent->pointer[left_index]
+        leftSibling->keys[leftSibling->num_keys] = temp->parent->keys[left_index];
+        //merge two leaf node
+        for(int i=0; i<temp->num_keys; i++){
+            leftSibling->keys[leftSibling->num_keys+i+1]=temp->keys[i];
+        }
+        for(int i=0; i<temp->num_keys+1;i++){
+            leftSibling->pointer[leftSibling->num_keys+i+1] = temp->pointer[i];
+            temp->pointer[i]->parent = leftSibling;
+        }
+        for(int i=0; i<temp->num_keys+1; i++){
+            temp->pointer[i] = NULL;
+        }
+        leftSibling->num_keys = leftSibling->num_keys+temp->num_keys+1;
+        //delete recursion
+        removeParent(temp, left_index, temp->parent);
+        return;
+    }
+    if(right_index<=temp->parent->num_keys){ // right_sibiling exists
+        TreeNode* rightSibling = temp->parent->pointer[right_index]
+        temp->keys[temp->num_keys] = temp->parent->keys[right_index-1];
+        //merge two leaf node
+        for(int i=0; i<rightSibling->num_keys; i++){
+            temp->keys[temp->num_keys+1+i]=rightSibling->keys[i];
+        }
+        for(int i=0; i<rightSibling->num_keys+1;i++){
+            temp->pointer[temp->num_keys+i+1] = rightSibling->pointer[i];
+            rightibling->pointer[i]->parent=rightSibling;
+        }
+        for(int i=0; i<rightSibling->num_keys+1; i++){
+            rightSibling->pointer[i] = NULL;
+        }
+        //edit pointer
+        rightSibling->num_keys = rightSibling->num_keys+temp->num_keys+1;
+        //parent property edit
+        removeParent(rightSibling, right_index-1, temp->parent);
+        return;
+    }
+}
 void brute_force(Record** Disk, float lowerBound, float upperBound){
     int quantity=0;
     for(int i=0;i<blockQuantity;i++){

@@ -35,7 +35,7 @@ typedef struct TreeNode{
 }TreeNode; //N==38
 
 typedef struct Bucket{
-    void* sameKeyPointer[45]; //bucket of duplicate pointers 
+    void* samekeyPointer[45]; //bucket of duplicate pointer 
     uint8_t size;
 }Bucket;
 
@@ -193,7 +193,7 @@ void find(float lowerBound, float upperBound){
             Bucket* buck=leaf->pointer[i];
             num_records+=buck->size;
             for(int j=0;j<buck->size;j++){
-                Record* rec = buck->sameKeyPointer[j];
+                Record* rec = buck->samekeyPointer[j];
                 sum_of_FG3+=(float)rec->FG3_PCT_home/1000;
                 displayRecord(rec);
             }
@@ -284,40 +284,40 @@ void insertIntoParent(TreeNode* left, int key, TreeNode* right){
 void splitNonLeafInsertion(TreeNode* old_node, int left_index, uint16_t key, TreeNode* right){
     int split=ceil(N/2)+1, k_prime;
     uint16_t tmp_keys[39];
-    TreeNode* tmp_pointers[40];
+    TreeNode* tmp_pointer[40];
     for(int i=0,j=0;i<old_node->num_keys+1;i++,j++){
         if(j==left_index+1)
             j++;
-        tmp_pointers[j]=old_node->pointer[i];
+        tmp_pointer[j]=old_node->pointer[i];
     }
     for(int i=0,j=0;i<old_node->num_keys;i++,j++){
         if(j==left_index)
             j++;
         tmp_keys[j]=old_node->pointer[i];
     }
-    tmp_pointers[left_index+1]=right;
+    tmp_pointer[left_index+1]=right;
     tmp_keys[left_index]=key;
 
     TreeNode* newNode=malloc(sizeof(TreeNode));
     
 
     for(int i=0;i<split;i++){
-        old_node->pointer[i]=tmp_pointers[i];
-        old_node->keys[i]=tmp_pointers[i];
+        old_node->pointer[i]=tmp_pointer[i];
+        old_node->keys[i]=tmp_pointer[i];
     }
 
     old_node->num_keys=split;
-    old_node->pointer[split]=tmp_pointers[split];
+    old_node->pointer[split]=tmp_pointer[split];
     k_prime = tmp_keys[split];
 
     newNode->num_keys=0;
     for(int i=split+1,j=0;i<N+1;i++,j++){
-        newNode->pointer[j]=tmp_pointers[i];
+        newNode->pointer[j]=tmp_pointer[i];
         newNode->keys[j]=tmp_keys[i];
         newNode->num_keys++;
     }
-    newNode->pointer[newNode->num_keys]=tmp_pointers[-1];
-    free(tmp_pointers);
+    newNode->pointer[newNode->num_keys]=tmp_pointer[-1];
+    free(tmp_pointer);
     free(tmp_keys);
     newNode->parent =old_node->parent;
     TreeNode* child;
@@ -336,7 +336,7 @@ void splitLeafInsertion(TreeNode* leaf,uint16_t key, void* pointer);
 void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
     TreeNode* new_leaf=createNewLeaf();
     uint16_t tmp_keys[39];
-    TreeNode* tmp_pointers[40];
+    TreeNode* tmp_pointer[40];
     int insertion_index=0,split,new_key;
 
     while(insertion_index<N && leaf->keys[insertion_index]<key){
@@ -347,17 +347,17 @@ void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
     for (int i = 0, j = 0; i < leaf->num_keys; i++, j++) {
         if (j == insertion_index) {
             tmp_keys[j] = key;
-            tmp_pointers[j] = pointer;
+            tmp_pointer[j] = pointer;
             j++;
         }
         tmp_keys[j] = leaf->keys[i];
-        tmp_pointers[j] = leaf->pointer[i];
+        tmp_pointer[j] = leaf->pointer[i];
     }
     split=ceil((N+1)/2);
 
     for(int i=0;i<N;i++){
         if(i<split){
-            leaf->pointer[i]=tmp_pointers[i];
+            leaf->pointer[i]=tmp_pointer[i];
             leaf->keys[i]=tmp_keys[i];
         }
         else
@@ -366,8 +366,8 @@ void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
     leaf->num_keys=split;
     for(int i=split,j=0;j<N;i++,j++){
         if(j<N+1-split){
-            new_leaf->pointer[j]=tmp_pointers[i];
-            new_leaf->keys[j]=tmp_pointers[i];
+            new_leaf->pointer[j]=tmp_pointer[i];
+            new_leaf->keys[j]=tmp_pointer[i];
             new_leaf->num_keys++;
         }
         else
@@ -375,7 +375,7 @@ void splitLeafInsertion(TreeNode* leaf,uint16_t key,void* pointer){
     }
     new_leaf->parent=leaf->parent;
     free(tmp_keys);
-    free(tmp_pointers);
+    free(tmp_pointer);
     
     new_leaf->pointer[N]=leaf->pointer[N];
     leaf->pointer[N]=new_leaf;
@@ -416,8 +416,8 @@ TreeNode* merge(TreeNode* left, TreeNode* right)
     for(int i = 0; i<right->num_keys;i++)
     {
         left->keys[start+i] = right->keys[i];
-        left->pointers[start+i+1] = right->pointers[i+1];
-        left->key[num_keys]++;
+        left->pointer[start+i+1] = right->pointer[i+1];
+        left->keys[left->num_keys]++;
     }
     right = NULL;
     return left;
@@ -425,10 +425,10 @@ TreeNode* merge(TreeNode* left, TreeNode* right)
 
 
 
-void deleteSimple(TreeNode *leaf, int key, int replaceKey=0)
+void deleteSimple(TreeNode *leaf, int key, int replacekey)
 {
     int i = 0;
-    int num_pointers;
+    int num_pointer;
     while (leaf->keys[i] != key){
         i++;
     }
@@ -443,18 +443,18 @@ void deleteSimple(TreeNode *leaf, int key, int replaceKey=0)
         leaf->pointer[i] = NULL;
     }
     else
-        leaf->keys[i] = replaceKey;
+        leaf->keys[i] = replacekey;
 }
 void deleteMinimum(TreeNode *leaf, int key)
 {
     int i = 0;
-    int num_pointers;
+    int num_pointer;
     
     while (leaf->keys[i] != key){
         i++;
     }
     TreeNode *parent = leaf->parent;
-    int key = leaf->keys[i];
+    key = leaf->keys[i];
     int median;
     TreeNode *leftSibling=NULL;
     TreeNode *rightSibling=NULL;
@@ -463,8 +463,8 @@ void deleteMinimum(TreeNode *leaf, int key)
         if(parent->keys[id]>=key)
         {   
             if(id!=0) 
-            leftSibling = parent->pointers[id-1];
-            rightSibling = parent->pointers[id+1];
+            leftSibling = parent->pointer[id-1];
+            rightSibling = parent->pointer[id+1];
             break;
         }
     }
@@ -475,12 +475,12 @@ void deleteMinimum(TreeNode *leaf, int key)
         if(leftSibling->num_keys>ceil(N/2+1)){
             for(int j=1; j<leaf->num_keys; j++){
                 leaf->keys[j] = leaf->keys[j-1];
-                leaf->pointers[j] = leaf->pointers[j-1];
+                leaf->pointer[j] = leaf->pointer[j-1];
             }
             leaf->keys[0] = leftSibling->keys[leftSibling->num_keys-1];
-            leaf->pointers[0] = leftSibling->pointers[leftSibling->num_keys-1];
+            leaf->pointer[0] = leftSibling->pointer[leftSibling->num_keys-1];
             leftSibling->keys[leftSibling->num_keys-1] = NULL;
-            leftSibling->pointers[leftSibling->num_keys-1] = NULL;
+            leftSibling->pointer[leftSibling->num_keys-1] = NULL;
             leftSibling->num_keys--;
             int median_pos = ceil((leftSibling->num_keys + leaf->num_keys)+1)/2;
             int median_key;
@@ -495,13 +495,13 @@ void deleteMinimum(TreeNode *leaf, int key)
             if(rightSibling->num_keys>ceil(N/2+1)){
 
                 leaf->keys[leaf->num_keys] = rightSibling->keys[0];
-                leaf->pointers[leaf->num_keys] = rightSibling->pointers[0];
+                leaf->pointer[leaf->num_keys] = rightSibling->pointer[0];
                 for(int j=0; j<rightSibling->num_keys-1; j++){
                     rightSibling->keys[j] = rightSibling->keys[j+1];
-                    rightSibling->pointers[j] = rightSibling->pointers[j+1];
+                    rightSibling->pointer[j] = rightSibling->pointer[j+1];
                 }
                 rightSibling->keys[rightSibling->num_keys-1] = NULL;
-                rightSibling->pointers[rightSibling->num_keys-1] = NULL;
+                rightSibling->pointer[rightSibling->num_keys-1] = NULL;
                 rightSibling->num_keys--;
                 int median_pos = ceil((rightSibling->num_keys + leaf->num_keys)+1)/2;
                 int median_key;
@@ -518,10 +518,10 @@ void deleteMinimum(TreeNode *leaf, int key)
 
 }
 
-TreeNode findInternal(TreeNode *leaf, int key) //find if there is an internal/root node that contains the key
+TreeNode* findInternal(TreeNode *leaf, int key) //find if there is an internal/root node that contains the key
 {
     TreeNode *parent = leaf->parent;
-    while(parent->root!=NULL)
+    while(parent->parent!=NULL)
     {
         for(int j = 0; j<parent->num_keys; j++){
             if(parent->keys[j]==key){
@@ -551,15 +551,15 @@ void deleteRange(float lowerBound, float upperBound){
     }
     while(i<=leaf->num_keys && (float)leaf->keys[i]/1000<=upperBound)
     {
-        int key = leaf->keys[i]
-        TreeNode *internalNode = findInternal(leaf, key)
+        int key = leaf->keys[i];
+        TreeNode* internalNode = findInternal(leaf, key);
 
 
         if(internalNode==NULL) // is not internal node
         {
             if(leaf->num_keys>ceil(N/2+1)) //normal delete
             {
-                deleteSimple(leaf, key);
+                deleteSimple(leaf, key, 0);
                 i++;
             }
             else if(leaf->num_keys==ceil(N/2+1))
@@ -571,22 +571,22 @@ void deleteRange(float lowerBound, float upperBound){
             // more than minimum for both
             if(internalNode->num_keys>ceil(N/2+1)){
                 if(leaf->num_keys>ceil(N/2+1))
-                deleteSimple(leaf, key);
+                deleteSimple(leaf, key, 0);
                 else deleteMinimum(leaf, key);
                 
-                deleteSimple(internalNode);
+                deleteSimple(internalNode, key, 0);
             }
             else {
                 if(leaf->num_keys>ceil(N/2+1))
-                deleteSimple(leaf, key);
+                deleteSimple(leaf, key, 0);
                 else deleteMinimum(leaf, key);
 
                 if(internalNode!=root)
-                deleteMinimum(internalNode, key, leaf[i+1]);
+                deleteMinimum(internalNode, key);
 
                 if(internalNode==root)
                 if(internalNode->num_keys>1)
-                    deleteMinimum(internalNode, key, leaf[i+1]);
+                    deleteMinimum(internalNode, key);
 
                 else{ // merge into root 
                     TreeNode* leftChild = internalNode->pointer[0];
@@ -609,7 +609,7 @@ void deleteRange(float lowerBound, float upperBound){
         }
         if(i>=leaf->num_keys)
             {
-                leaf = leaf->pointer(N); // go to the next node;
+                leaf = leaf->pointer[N]; // go to the next node;
                 i = 0;
             }
     }
@@ -643,7 +643,7 @@ int get_neighbor_index(TreeNode* leaf){
 TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer);
 TreeNode *removeFromLeaf(TreeNode* leaf, int key, TreeNode* pointer){
     int i = 0;
-    int num_pointers;
+    int num_pointer;
     
     while (leaf->keys[i] != key){
         i++;
@@ -718,43 +718,70 @@ TreeNode*redistribute_nodes(TreeNode *root, TreeNode *leaf, TreeNode *neighbor, 
              }
 
 
-void delete_records_less_than_key_from_disk(Record** Disk, float FGPCT_value){
-    int index;
-    TreeNode* target_leaf = findLeaf(FGPCT_value);
-    for (int k = 0; k<target_leaf->num_keys; k++){
-        if(FGPCT_value == target_leaf->keys[k]){
-            index = k;
-            break;
-        }
-    }
-    for (int i = 0; i < blockQuantity; i++){
-        if(Disk[i] == target_leaf->pointer[index]){
-            break;
-        } 
-        else{
-            for(int j=0; j<recordsPerBlock; j++){
-                Disk[i][j].year = NULL;
-                Disk[i][j].month = NULL;
-                Disk[i][j].day = NULL;
-                Disk[i][j].TEAM_ID_home = NULL;
-                Disk[i][j].PTS_home = NULL;
-                Disk[i][j].FG_PCT_home = NULL;
-                Disk[i][j].FG3_PCT_home = NULL;
-                Disk[i][j].FT_PCT_home = NULL;
-                Disk[i][j].AST_home = NULL;
-                Disk[i][j].REB_home = NULL;
-                Disk[i][j].HOME_TEAM_WINS = NULL;
+// void delete_records_less_than_key_from_disk(Record** Disk, float FGPCT_value){
+//     int index;
+//     TreeNode* target_leaf = findLeaf(FGPCT_value);
+//     printf(target_leaf->num_keys);
+//     for (int k = 0; k<target_leaf->num_keys; k++){
+//         if(FGPCT_value == target_leaf->keys[k]){
+//             index = k;
+//         }
+//     }
+//     printf("This index is found");
+//     for (int i = 0; i < blockQuantity; i++){
+//         if(Disk[i] == target_leaf->pointer[index]){
+//             break;
+//         } 
+//         else{
+//             printf("Starting to set entries to NULL");
+//             for(int j=0; j<recordsPerBlock; j++){
+//                 Disk[i][j].year = NULL;
+//                 Disk[i][j].month = NULL;
+//                 Disk[i][j].day = NULL;
+//                 Disk[i][j].TEAM_ID_home = NULL;
+//                 Disk[i][j].PTS_home = NULL;
+//                 Disk[i][j].FG_PCT_home = NULL;
+//                 Disk[i][j].FG3_PCT_home = NULL;
+//                 Disk[i][j].FT_PCT_home = NULL;
+//                 Disk[i][j].AST_home = NULL;
+//                 Disk[i][j].REB_home = NULL;
+//                 Disk[i][j].HOME_TEAM_WINS = NULL;
+//             }
+//         }
+//     }
+//     return;   
+// }
+
+void delete_range_from_disk(TreeNode* tree_node_pointer){
+    int i,j;
+    for(i=0;i<tree_node_pointer->num_keys; i++){
+        Bucket* bucket_pointer = tree_node_pointer->pointer[i];
+        while(bucket_pointer->samekeyPointer[46] != NULL){
+            for(j=0;j<46;j++){
+                Record* record_pointer = bucket_pointer->samekeyPointer[j];
+                record_pointer->year = NULL; // 12 bits for year (limited to 0-4095)
+                record_pointer->month = NULL; // 4 bits for month (limited to 1-12)
+                record_pointer->day = NULL;
+                record_pointer->TEAM_ID_home = NULL; 
+                record_pointer->PTS_home = NULL; 
+                record_pointer->FG_PCT_home = NULL;
+                record_pointer->FG3_PCT_home= NULL; 
+                record_pointer->FT_PCT_home = NULL;
+                record_pointer->AST_home = NULL; 
+                record_pointer->REB_home = NULL; 
+                record_pointer->HOME_TEAM_WINS = NULL;
             }
         }
-    }   
+    }    
 }
+
 
 int main(){    
     clock_t begin,end;
     double time_spent;
     Record** Disk=DiskAllocation(); //Store records into blocks inside disk
 
-    printf("wtf");
+    
 
     //Insert into B+ Tree
     for(int i=0;i<blockQuantity;i++){ 
@@ -773,28 +800,26 @@ int main(){
     time_spent = (end-begin)/CLOCKS_PER_SEC;
     printf("Time taken to retrieve records with key value 0.5 using B+ tree: %lf seconds\n",time_spent);
 
-    begin=clock();
-    brute_force(Disk,0.5,0.5);
-    end=clock();
-    time_spent=(end-begin)/CLOCKS_PER_SEC;
-    printf("Time taken to retrieve records with key value 0.5 using brute force: %lf seconds\n",time_spent);
+    // begin=clock();
+    // brute_force(Disk,0.5,0.5);
+    // end=clock();
+    // time_spent=(end-begin)/CLOCKS_PER_SEC;
+    // printf("Time taken to retrieve records with key value 0.5 using brute force: %lf seconds\n",time_spent);
 
     //////////////////////////////////////////////////////////////////
     //Retrieve FG_PCT from 0.6 to 1
-    begin=clock();
-    find(0.6,1);
-    end=clock();
-    time_spent=(end-begin)/CLOCKS_PER_SEC;
-    printf("Time taken to retrive records with key values from 0.6 to 1 using B+ tree: %lf seconds\n",time_spent);
+    // begin=clock();
+    // find(0.6,1);
+    // end=clock();
+    // time_spent=(end-begin)/CLOCKS_PER_SEC;
+    // printf("Time taken to retrive records with key values from 0.6 to 1 using B+ tree: %lf seconds\n",time_spent);
 
-    begin=clock();
-    brute_force(Disk,0.6,1);
-    end=clock();
-    time_spent=(end-begin)/CLOCKS_PER_SEC;
-    printf("Time taken to retrive records with key values from 0.6 to 1 using brute force: %lf seconds\n",time_spent);
-
-    //////////////////////////////////////////////////////////////////
-    delete_records_less_than_key_from_disk(Disk, 0.35);
+    // begin=clock();
+    // brute_force(Disk,0.6,1);
+    // end=clock();
+    // time_spent=(end-begin)/CLOCKS_PER_SEC;
+    // printf("Time taken to retrive records with key values from 0.6 to 1 using brute force: %lf seconds\n",time_spent);
+    // delete_records_less_than_key_from_disk(Disk, 0.35);
     printf("After deletion:");
     find(0,0.35);
     return 0;
